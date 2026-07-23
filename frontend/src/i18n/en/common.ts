@@ -1,7 +1,7 @@
 
 export default {
   'language': 'Language',
-  'chinese': 'Chinese',
+  'portuguese': 'Portuguese (Brazil)',
   'english': 'English',
   'settings': 'Settings',
   'logout': 'Logout',

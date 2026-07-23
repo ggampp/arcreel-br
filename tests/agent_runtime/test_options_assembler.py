@@ -138,8 +138,8 @@ async def test_build_adds_keep_alive_hook_with_can_use_tool(tmp_path: Path) -> N
 async def test_build_append_prompt_carries_locale_language(tmp_path: Path) -> None:
     """prompt 装配按 locale 渲染语言规范段。"""
     assembler = _make_assembler(tmp_path)
-    prompt = assembler._build_append_prompt("demo", locale="vi")
-    assert "Tiếng Việt" in prompt or "vi" in prompt.lower()
+    prompt = assembler._build_append_prompt("demo", locale="pt")
+    assert "Português" in prompt or "pt" in prompt.lower()
     # persona 恒在
     assert "ArcReel 智能体" in prompt
 

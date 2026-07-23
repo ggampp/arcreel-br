@@ -39,7 +39,7 @@ describe("TaskHud cascade label", () => {
   });
 
   it("renders cascade label when cancelled_by === 'cascade'", async () => {
-    await i18n.changeLanguage("zh");
+    await i18n.changeLanguage("pt");
     resetStores();
     useTasksStore.setState({
       tasks: [
@@ -59,7 +59,7 @@ describe("TaskHud cascade label", () => {
   });
 
   it("does not render cascade label for user cancel", async () => {
-    await i18n.changeLanguage("zh");
+    await i18n.changeLanguage("pt");
     resetStores();
     useTasksStore.setState({
       tasks: [
@@ -95,6 +95,6 @@ describe("TaskHud cascade label", () => {
     render(<HostedTaskHud />);
     const labels = await screen.findAllByText("cascaded");
     expect(labels.length).toBeGreaterThan(0);
-    await i18n.changeLanguage("zh");
+    await i18n.changeLanguage("pt");
   });
 });

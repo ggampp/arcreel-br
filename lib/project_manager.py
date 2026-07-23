@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import portalocker
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from lib.agent_profile import agent_profile_dir
 from lib.asset_types import ASSET_SPECS, validate_asset_name
@@ -127,7 +127,16 @@ class ProjectOverview(BaseModel):
     # language 是 LLM 输出存档字段；唯一真相源是顶层 project["source_language"]，
     # 由 generate_overview 在落盘时同步写入。所有度量/切分调用方一律读顶层字段，
     # 不要直接读 overview.language。
-    language: Literal["zh", "en", "vi"] = Field(description="小说源语言代码")
+    # 内容语言代码（ISO 639-1 两字母），与 UI i18n（仅 pt/en）独立。
+    language: str = Field(description="小说源语言代码（ISO 639-1，如 pt / en / zh）")
+
+    @field_validator("language")
+    @classmethod
+    def _normalize_language_code(cls, value: str) -> str:
+        code = str(value or "").strip().lower()
+        if not re.fullmatch(r"[a-z]{2}", code):
+            raise ValueError("language must be an ISO 639-1 two-letter code (e.g. pt, en, zh)")
+        return code
 
 
 class ProjectManager:
@@ -1615,11 +1624,20 @@ class ProjectManager:
             },
         }
         if resolved_mode == "ad":
+            from lib.ad_timeline import empty_ad_timeline
+            from lib.brand_profile import empty_brand_profile
+
             project["target_duration"] = (
                 target_duration if target_duration is not None else self.AD_DEFAULT_TARGET_DURATION
             )
             project["brief"] = brief if brief is not None else ""
             project["episodes"] = [dict(self.AD_SINGLE_EPISODE)]
+            # Brand Analyzer 产出与成片时间线：创建即落默认空壳，避免下游读路径缺键
+            project["brand_profile"] = empty_brand_profile()
+            project["ad_timeline"] = empty_ad_timeline()
+            # last-frame 续写默认开；多 take 默认 1（可升到 2–3 做版本对比）
+            project["ad_continuation"] = True
+            project["ad_video_takes"] = 1
         if default_duration is not None:
             project["default_duration"] = default_duration
         if style_template_id is not None:
@@ -1631,7 +1649,16 @@ class ProjectManager:
                 raise ValueError("image_backend 已废弃，请改用 image_provider_t2i / image_provider_i2i")
             # extras 只许追加可选字段，不得覆盖上方已校验/已构造的核心字段——
             # 否则非路由调用方可借 extras 绕过模式互斥守卫（如 ad 项目写回 default_duration）。
-            reserved = set(project) | {"default_duration", "style_template_id", "target_duration", "brief"}
+            reserved = set(project) | {
+                "default_duration",
+                "style_template_id",
+                "target_duration",
+                "brief",
+                "brand_profile",
+                "ad_timeline",
+                "ad_continuation",
+                "ad_video_takes",
+            }
             forbidden = reserved & set(extras)
             if forbidden:
                 raise ValueError(f"extras 不允许覆盖核心字段: {sorted(forbidden)}")

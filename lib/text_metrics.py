@@ -28,7 +28,8 @@ _LATIN_WORD_PATTERN = re.compile(r"\b\w+\b", re.UNICODE)
 
 def _pattern_for(language: str | None) -> re.Pattern[str]:
     code = (language or "").strip().lower()
-    if code in ("en", "vi"):
+    # Latin-script languages count words; CJK (zh and legacy unknown) count characters.
+    if code in ("en", "pt", "vi"):
         return _LATIN_WORD_PATTERN
     return _ZH_UNIT_PATTERN
 
@@ -37,7 +38,7 @@ def count_reading_units(text: str, language: str | None) -> int:
     """按源文语言数『阅读单位』。
 
     zh: 汉字 + CJK 标点 / 全角符号
-    en / vi: unicode word-boundary 词数（数字计作词;缩写如 "don't" 会按 word-boundary
+    en / pt / vi: unicode word-boundary 词数（数字计作词;缩写如 "don't" 会按 word-boundary
         规则拆分为 ``don`` + ``t``。如需把缩写计为单一 token，需换用不同的正则。）
     未知 / None / 空 language: 按 zh 路径处理(向后兼容老项目缺 source_language 的场景)
     """

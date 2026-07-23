@@ -125,6 +125,14 @@ class UpdateProjectRequest(BaseModel):
     target_duration: int | None = Field(default=None, gt=0)
     # 仅 ad 项目：创作诉求短文本；显式 null 清为空字符串
     brief: str | None = None
+    # 仅 ad：BrandProfile 对象（merge 语义在路由层）
+    brand_profile: dict | None = None
+    # 仅 ad：成片时间线（文字叠层 + 音乐）
+    ad_timeline: dict | None = None
+    # 仅 ad：镜头间 last-frame 续写
+    ad_continuation: bool | None = None
+    # 仅 ad：每镜视频 take 数 1–3
+    ad_video_takes: int | None = Field(default=None, ge=1, le=3)
     generation_mode: str | None = None
     video_backend: str | None = None
     image_backend: str | None = None
@@ -733,6 +741,44 @@ async def update_project(name: str, req: UpdateProjectRequest, _user: CurrentUse
                     if not is_ad:
                         raise HTTPException(status_code=400, detail=_t("ad_only_field", field="brief"))
                     project["brief"] = req.brief if req.brief is not None else ""
+                if "brand_profile" in req.model_fields_set:
+                    if not is_ad:
+                        raise HTTPException(status_code=400, detail=_t("ad_only_field", field="brand_profile"))
+                    from lib.brand_profile import empty_brand_profile, merge_brand_profile, validate_brand_profile
+
+                    if req.brand_profile is None:
+                        project["brand_profile"] = empty_brand_profile()
+                    else:
+                        errs = validate_brand_profile(req.brand_profile)
+                        if errs:
+                            raise HTTPException(status_code=400, detail="; ".join(errs))
+                        project["brand_profile"] = merge_brand_profile(project.get("brand_profile"), req.brand_profile)
+                if "ad_timeline" in req.model_fields_set:
+                    if not is_ad:
+                        raise HTTPException(status_code=400, detail=_t("ad_only_field", field="ad_timeline"))
+                    from lib.ad_timeline import empty_ad_timeline, normalize_ad_timeline, validate_ad_timeline
+
+                    if req.ad_timeline is None:
+                        project["ad_timeline"] = empty_ad_timeline()
+                    else:
+                        errs = validate_ad_timeline(req.ad_timeline)
+                        if errs:
+                            raise HTTPException(status_code=400, detail="; ".join(errs))
+                        project["ad_timeline"] = normalize_ad_timeline(req.ad_timeline)
+                if "ad_continuation" in req.model_fields_set:
+                    if not is_ad:
+                        raise HTTPException(status_code=400, detail=_t("ad_only_field", field="ad_continuation"))
+                    if req.ad_continuation is None:
+                        project.pop("ad_continuation", None)
+                    else:
+                        project["ad_continuation"] = bool(req.ad_continuation)
+                if "ad_video_takes" in req.model_fields_set:
+                    if not is_ad:
+                        raise HTTPException(status_code=400, detail=_t("ad_only_field", field="ad_video_takes"))
+                    if req.ad_video_takes is None:
+                        project.pop("ad_video_takes", None)
+                    else:
+                        project["ad_video_takes"] = int(req.ad_video_takes)
 
                 if "style_template_id" in req.model_fields_set:
                     if req.style_template_id is None:

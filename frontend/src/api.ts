@@ -313,7 +313,7 @@ function withAuth(options: RequestInit = {}): RequestInit {
     headers.set("Authorization", `Bearer ${token}`);
   }
   // Add Accept-Language header based on current i18n language
-  headers.set("Accept-Language", i18n.language || "zh");
+  headers.set("Accept-Language", i18n.language || "pt");
   return { ...options, headers };
 }
 

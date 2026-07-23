@@ -9,9 +9,10 @@ description: 把已生成的视频片段按剧本顺序拼接为单集成片，�
 
 ## 适用范围（重要）
 
-- **仅 drama 模式** — 脚本读取剧本顶层 `scenes[]`；narration（`segments[]`）、ad（`shots[]`）和 reference_video（`video_units[]`）会被脚本拒绝。这些模式的成片导出请走 Web 端剪映草稿导出（ad 草稿含视频轨 + 口播文案字幕轨，导出后在剪映配音成片）
+- **drama + ad** — 读取剧本顶层 `scenes[]`（drama）或 `shots[]`（ad）；narration（`segments[]`）与纯 reference_video（`video_units[]`）仍请走 Web 端剪映草稿导出
+- **ad 时间线** — 可读 `project.json` 的 `ad_timeline.text_overlays`（烧录字幕叠层）与 `ad_timeline.music_track`（或 CLI `--music`）；音乐文件须在项目目录内（建议 `music/`）
 - **单集拼接** — 一次只处理一份剧本文件，不支持多集合并
-- **不实现片头片尾 / BGM 音量调节** — 这些需求请走 Web 端剪映草稿导出
+- **不实现片头片尾 / 精细 BGM 时间轴** — 高级时间线仍可用 Web 端剪映草稿导出
 
 ## CLI 用法
 

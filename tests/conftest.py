@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 
-def make_translator(locale: str = "zh") -> Callable[..., str]:
+def make_translator(locale: str = "pt") -> Callable[..., str]:
     """Create a translator function bound to a fixed locale for testing."""
     from lib.i18n import _ as i18n_translate
 

@@ -80,22 +80,27 @@ agent session 的当前工作目录（cwd）已绑定到当前项目根，**所�
 
 `/manga-workflow` 编排 skill 按以下阶段推进（每个阶段完成后与用户确认再继续）；用户提到做视频、继续项目、查看进度时使用该 skill。涉及尚未落地的环节时如实告知用户，不要用 narration/drama 的小说流程替代：
 
-1. **创作输入确认**：Read `project.json` 检查 `brief`、`products`、`target_duration`、`generation_mode`。带货项目产品未登记或缺原图时，引导用户在 WebUI 初始化页或产品资产页上传产品图（原图是产品保真的验收锚点，agent 不能代传图片；通用短片见下文，不索要产品）；用户勾选「生成标准产品参考图」时 product sheet 走任务队列生成。`brief` 为空时对话补齐创作诉求（产品/主题、目标人群、期望风格），经 `mcp__arcreel__patch_project` 写入
-2. **卖点起草确认**：产品已登记但 `selling_points` 为空时，从 brief、产品描述与原图起草卖点列表，与用户确认后经 `patch_project` 写入 products 表——剧本生成会把卖点注入带货框架的 selling_point/demo 段
-3. **资产设计（可选）**：剧本会用到的角色/场景/道具先定义进 `project.json` 再 dispatch `generate-assets` subagent 出设计图；轻量短片可跳过，仅靠产品参考与项目 style
-4. **一键生成剧本**：`mcp__arcreel__generate_episode_script({"episode": 1})`，八段带货框架按 `target_duration` 选档配比；生成后向用户呈现镜头列表与口播文案，按需经 `patch_episode_script` 调整（镜头顺序调整引导用户到 WebUI 剧本页）
-5. **product sheet 过目（软门禁）**：产品生成了 `product_sheet` 时，分镜开工前（参考直出路径为首次视频生成前）安排用户到产品资产页确认 sheet 与真品一致（见下文「产品保真」）；无 sheet（仅原图）直接进入下一步
-6. **分镜图生成**（仅 storyboard 路径；reference_video 跳过）：产品镜头自动注入产品参考；生成后引导用户审核产品形象保真度，不合格的重新生成——在产生视频费用前拦截
-7. **视频生成**：storyboard 路径逐镜头图生视频；reference_video 路径自动派生分组按 unit 直出
-8. **导出剪映草稿**：视频齐全后引导用户在 Web 端导出剪映草稿（视频轨 + 口播文案字幕轨，字幕在竖屏 safe-zone 内）；打开剪映即完整时间线，照口播文案配音后成片。in-app 成片（compose-video）对 ad 不适用
+1. **创作输入确认**：Read `project.json` 检查 `brief`、`products`、`target_duration`、`generation_mode`、`brand_profile`。带货项目产品未登记或缺原图时，引导用户在 WebUI 初始化页或产品资产页上传产品图（原图是产品保真的验收锚点，agent 不能代传图片；上传后系统可选生成 `*_isolated.png` 去背景参考，不覆盖原件；通用短片见下文，不索要产品）；用户勾选「生成标准产品参考图」时 product sheet 走任务队列生成。`brief` 为空时对话补齐创作诉求（产品/主题、目标人群、期望风格），经 `mcp__arcreel__patch_project` 写入
+2. **Brand Analyzer**：`brief`/产品就绪后调用 `mcp__arcreel__brand_analyzer_prompt` 获取起草指令，产出 `brand_profile`（visual_description、tone_of_voice、target_audience、brand_colors、style_keywords、style_prefix），与用户确认后经 `patch_project` settings 写入——`style_prefix` 会注入后续全部分镜/视频 prompt
+3. **卖点起草确认**：产品已登记但 `selling_points` 为空时，从 brief、产品描述与原图起草卖点列表，与用户确认后经 `patch_project` 写入 products 表——剧本生成会把卖点注入带货框架的 selling_point/demo 段
+4. **资产设计（可选）**：剧本会用到的角色/场景/道具先定义进 `project.json` 再 dispatch `generate-assets` subagent 出设计图；轻量短片可跳过，仅靠产品参考与项目 style
+5. **一键生成剧本**：`mcp__arcreel__generate_episode_script({"episode": 1})`，八段带货框架按 `target_duration` 选档配比；生成后向用户呈现镜头列表与口播文案，按需经 `patch_episode_script` 调整（镜头顺序调整引导用户到 WebUI 剧本页）
+6. **product sheet 过目（软门禁）**：产品生成了 `product_sheet` 时，分镜开工前（参考直出路径为首次视频生成前）安排用户到产品资产页确认 sheet 与真品一致（见下文「产品保真」）；无 sheet（仅原图）直接进入下一步
+7. **分镜图生成**（仅 storyboard 路径；reference_video 跳过）：产品镜头自动注入产品参考 + brand style_prefix；生成后引导用户审核产品形象保真度，不合格的重新生成——在产生视频费用前拦截
+8. **视频生成**：storyboard 路径逐镜头图生视频（`ad_video_takes` 默认 1；升到 2–3 可多 take 对比，版本管理器保留各 take，用户可用版本还原选中）；镜头间默认 last-frame 续写（`ad_continuation`，上一镜尾帧作下一镜 start）；reference_video 路径自动派生分组按 unit 直出
+9. **一致性评审**：视频生成后调用 `mcp__arcreel__critique_ad_consistency`；对 `recommend_regen=true` 的镜头重新生成（可换 seed），通过后再进入成片
+10. **成片导出**：
+    - **剪映草稿**（推荐）：Web 端导出（视频轨 + 口播文案字幕轨）
+    - **in-app compose-video**：现已支持 ad `shots[]`；可先用 `patch_project` 写 `ad_timeline`（`text_overlays` + `music_track`，音乐文件放在项目 `music/` 下），再运行 compose-video skill
 
 工作流支持**灵活入口**：从 `project.json` 与剧本现状判断进行到哪一步，中断后从未完成的阶段继续。
 
 ### 产品保真（软门禁）
 
 - **分镜开工前安排用户过目 product sheet**：产品生成了标准参考图（`product_sheet`）时，开始分镜前（参考直出路径为首次视频生成前——该路径 sheet 直接进视频参考集，更要在产生视频费用前确认）先请用户到产品资产页确认 sheet 与真品一致（不一致就重新生成）；确认后才继续。这是工作流约定，不是系统状态机——无 sheet（仅原图）时直接开工即可
-- 产品镜头（剧本 `products_in_shot` 非空）的分镜与视频生成会**自动注入产品参考**（有 sheet 时 sheet + 原图，无 sheet 时原图直注）并附高保真还原指令，无需在 image_prompt / video_prompt 里复述产品外观细节；氛围镜头零产品图，画风由项目级 style 承载
+- 产品镜头（剧本 `products_in_shot` 非空）的分镜与视频生成会**自动注入产品参考**（有 sheet 时 sheet + 原图，无 sheet 时原图直注；含可选 isolated 去背景图）并附高保真还原指令，无需在 image_prompt / video_prompt 里复述产品外观细节；氛围镜头零产品图，画风由项目级 style + `brand_profile.style_prefix` 承载
 - 分镜生成后引导用户审核产品形象保真度，不合格的镜头重新生成分镜——在产生视频费用前拦截错误的产品形象
+- 视频多 take 后可用版本 API/时间机器选中最佳 take；`critique_ad_consistency` 在结构+画面粗相似度上标记需重生镜头
 
 ### 通用短片（无产品）
 
@@ -144,9 +149,14 @@ projects/{项目名}/      # ← session cwd 已在此，下面均为 cwd 内的
 - `title`、`content_mode`（固定 `ad`）、`generation_mode`（`storyboard`/`reference_video`）、`style`、`style_description`
 - `target_duration`：目标总时长（秒，正整数）
 - `brief`：创作诉求短文本（可为空）
+- `brand_profile`：品牌分析档案（visual_description / tone_of_voice / target_audience / brand_colors / style_keywords / style_prefix），经 Brand Analyzer 起草
+- `ad_timeline`：成片时间线（`text_overlays[]`、`music_track` 项目内相对路径）
+- `ad_continuation`：镜头间 last-frame 续写（默认 true）
+- `ad_video_takes`：每镜视频 take 数 1–3（默认 1；升到 2–3 做多 take）
 - `episodes`：恒为第 1 集单条（episode、title、script_file）
 - `products`：产品资产完整定义（description、brand、reference_images 原图列表、selling_points 卖点、product_sheet）
 - `characters` / `scenes` / `props`：资产完整定义
+- `music/`：可选 BGM 目录（compose 时 `ad_timeline.music_track` 指向此目录内文件）
 
 ### 数据分层原则
 

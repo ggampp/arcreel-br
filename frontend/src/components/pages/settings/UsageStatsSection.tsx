@@ -43,7 +43,7 @@ export function UsageStatsSection() {
 
   const percentFmt = useMemo(() => {
     const lang = i18n.language.split("-")[0];
-    const localeMap: Record<string, string> = { zh: "zh-CN", en: "en-US", vi: "vi-VN" };
+    const localeMap: Record<string, string> = { pt: "pt-BR", en: "en-US" };
     const locale = localeMap[lang] ?? "en-US";
     return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 });
   }, [i18n.language]);

@@ -17,6 +17,10 @@ from typing import Any
 from claude_agent_sdk import create_sdk_mcp_server
 
 from server.agent_runtime.sdk_tools._context import ToolContext
+from server.agent_runtime.sdk_tools.critique_ad import (
+    brand_analyzer_prompt_tool,
+    critique_ad_consistency_tool,
+)
 from server.agent_runtime.sdk_tools.enqueue_assets import (
     generate_assets_tool,
     list_pending_assets_tool,
@@ -80,6 +84,8 @@ ARCREEL_MCP_TOOL_IDS: tuple[str, ...] = (
     "remove_segment",
     "split_segment",
     "patch_project",
+    "critique_ad_consistency",
+    "brand_analyzer_prompt",
 )
 
 
@@ -111,5 +117,7 @@ def build_arcreel_mcp_server(*, project_name: str, projects_root: Path) -> Any:
             remove_segment_tool(ctx),
             split_segment_tool(ctx),
             patch_project_tool(ctx),
+            critique_ad_consistency_tool(ctx),
+            brand_analyzer_prompt_tool(ctx),
         ],
     )

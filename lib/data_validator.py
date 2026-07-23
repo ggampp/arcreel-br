@@ -236,6 +236,14 @@ class DataValidator:
                 errors.append("target_duration 仅广告/短片项目（content_mode=ad）可用")
             if project.get("brief") is not None:
                 errors.append("brief 仅广告/短片项目（content_mode=ad）可用")
+            if project.get("brand_profile") is not None:
+                errors.append("brand_profile 仅广告/短片项目（content_mode=ad）可用")
+            if project.get("ad_timeline") is not None:
+                errors.append("ad_timeline 仅广告/短片项目（content_mode=ad）可用")
+            if project.get("ad_continuation") is not None:
+                errors.append("ad_continuation 仅广告/短片项目（content_mode=ad）可用")
+            if project.get("ad_video_takes") is not None:
+                errors.append("ad_video_takes 仅广告/短片项目（content_mode=ad）可用")
             return
 
         target_duration = project.get("target_duration")
@@ -256,6 +264,22 @@ class DataValidator:
             len(episodes) != 1 or not isinstance(episodes[0], dict) or episodes[0].get("episode") != 1
         ):
             errors.append("广告/短片项目 episodes 必须恒为第 1 集单条")
+
+        # BrandProfile / 时间线 / 多 take / 续写开关（可选字段，有则校验形状）
+        from lib.ad_timeline import validate_ad_timeline
+        from lib.brand_profile import validate_brand_profile
+
+        if "brand_profile" in project and project.get("brand_profile") is not None:
+            errors.extend(validate_brand_profile(project.get("brand_profile")))
+        if "ad_timeline" in project and project.get("ad_timeline") is not None:
+            errors.extend(validate_ad_timeline(project.get("ad_timeline")))
+        takes = project.get("ad_video_takes")
+        if takes is not None:
+            if not isinstance(takes, int) or isinstance(takes, bool) or takes < 1 or takes > 3:
+                errors.append(f"ad_video_takes 值无效: {takes!r}，必须是 1–3 的整数")
+        cont = project.get("ad_continuation")
+        if cont is not None and not isinstance(cont, bool):
+            errors.append(f"ad_continuation 必须是布尔值，当前为 {type(cont).__name__}")
 
     def _validate_project_payload(
         self,

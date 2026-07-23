@@ -34,12 +34,17 @@ _SETTINGS_WHITELIST = (
     "episode_target_units",
     "source_language",
     "brief",
+    "brand_profile",
+    "ad_timeline",
+    "ad_continuation",
+    "ad_video_takes",
     "planning_window_chars",
     "planning_max_episodes",
     "narration_voice",
     "narration_speed",
 )
-_SOURCE_LANGUAGE_VALUES = ("zh", "en", "vi")
+_AD_ONLY_SETTINGS = frozenset({"brief", "brand_profile", "ad_timeline", "ad_continuation", "ad_video_takes"})
+_SOURCE_LANGUAGE_VALUES = ("pt", "en")
 _POSITIVE_INT_SETTINGS = ("episode_target_units", "planning_window_chars", "planning_max_episodes")
 
 # 项目概述（project["overview"]）可经本工具编辑的字段白名单。merge 语义:只改传入字段。
@@ -138,12 +143,32 @@ def _apply_settings(ctx: ToolContext, settings: dict[str, Any]) -> dict[str, Any
     diagnostics: dict[str, tuple[str, Any]] = {}
 
     def _mutate(project: dict[str, Any]) -> None:
-        # brief 仅广告/短片项目可用（与 DataValidator / 路由层同一约束），
-        # 在持锁读到 content_mode 后门控，整体失败不落盘
-        if "brief" in coerced and project.get("content_mode") != "ad":
-            raise ValueError("brief 仅广告/短片项目（content_mode=ad）可用")
+        # ad 专属 settings 与 DataValidator / 路由层同一约束，持锁读 content_mode 后门控
+        ad_keys = [k for k in coerced if k in _AD_ONLY_SETTINGS]
+        if ad_keys and project.get("content_mode") != "ad":
+            raise ValueError(f"{ad_keys[0]} 仅广告/短片项目（content_mode=ad）可用")
         for key, value in coerced.items():
             current = project.get(key)
+            if key == "brand_profile" and value is not None:
+                from lib.brand_profile import merge_brand_profile
+
+                merged = merge_brand_profile(current, value)
+                if current == merged:
+                    diagnostics[key] = ("noop", current)
+                else:
+                    project[key] = merged
+                    diagnostics[key] = ("set", merged)
+                continue
+            if key == "ad_timeline" and value is not None:
+                from lib.ad_timeline import normalize_ad_timeline
+
+                normalized = normalize_ad_timeline(value)
+                if current == normalized:
+                    diagnostics[key] = ("noop", current)
+                else:
+                    project[key] = normalized
+                    diagnostics[key] = ("set", normalized)
+                continue
             if value is None:
                 if key in project:
                     del project[key]
@@ -241,6 +266,42 @@ def _coerce_setting_value(key: str, value: Any) -> Any:
             return None
         if not isinstance(value, str):
             raise ValueError(f"brief 必须是字符串或 null,收到 {value!r}")
+        return value
+    if key == "brand_profile":
+        if value is None:
+            return None
+        from lib.brand_profile import validate_brand_profile
+
+        if not isinstance(value, dict):
+            raise ValueError(f"brand_profile 必须是对象或 null,收到 {value!r}")
+        errs = validate_brand_profile(value)
+        if errs:
+            raise ValueError("; ".join(errs))
+        return value
+    if key == "ad_timeline":
+        if value is None:
+            return None
+        from lib.ad_timeline import validate_ad_timeline
+
+        if not isinstance(value, dict):
+            raise ValueError(f"ad_timeline 必须是对象或 null,收到 {value!r}")
+        errs = validate_ad_timeline(value)
+        if errs:
+            raise ValueError("; ".join(errs))
+        return value
+    if key == "ad_continuation":
+        if value is None:
+            return None
+        if not isinstance(value, bool):
+            raise ValueError(f"ad_continuation 必须是布尔或 null,收到 {value!r}")
+        return value
+    if key == "ad_video_takes":
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = _coerce_numeric_string(value, int, f"ad_video_takes 必须是 1–3 的整数或 null,收到 {value!r}")
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1 or value > 3:
+            raise ValueError(f"ad_video_takes 必须是 1–3 的整数或 null,收到 {value!r}")
         return value
     if key == "narration_voice":
         if value is None:

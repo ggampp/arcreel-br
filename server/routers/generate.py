@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from lib.app_data_dir import app_data_dir
 from lib.asset_types import ASSET_SPECS
@@ -50,6 +50,8 @@ class GenerateVideoRequest(BaseModel):
     script_file: str
     duration_seconds: int | None = None  # 改为 None，由服务层解析
     seed: int | None = None
+    # 仅 ad 有效：每镜 take 数 1–3；缺省用 project.ad_video_takes（默认 2）
+    takes_count: int | None = Field(default=None, ge=1, le=3)
 
 
 class GenerateTtsRequest(BaseModel):
@@ -209,7 +211,11 @@ async def generate_video(
                 resource_id=segment_id,
                 prompt=req.prompt,
                 script_file=req.script_file,
-                extra_payload={"duration_seconds": req.duration_seconds, "seed": req.seed},
+                extra_payload={
+                    "duration_seconds": req.duration_seconds,
+                    "seed": req.seed,
+                    "takes_count": req.takes_count,
+                },
             )
         except TaskSpecValidationError as e:
             raise HTTPException(status_code=400, detail=_t(e.code, **e.params))

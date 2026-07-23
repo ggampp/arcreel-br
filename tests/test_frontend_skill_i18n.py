@@ -23,7 +23,7 @@ from lib.profile_manifest import VALID_CONTENT_MODES
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_ROOT = REPO_ROOT / "agent_runtime_profile" / ".claude" / "skills"
 DASHBOARD_TS = "frontend/src/i18n/{locale}/dashboard.ts"
-LOCALES = ("zh", "en", "vi")
+LOCALES = ("pt", "en")
 
 _SKILL_KEY_RE = re.compile(r"""['"](skill_name_[a-z0-9_]+)['"]\s*:""")
 _USER_INVOCABLE_RE = re.compile(r"^\s*user-invocable\s*:\s*(\S+)", re.MULTILINE)

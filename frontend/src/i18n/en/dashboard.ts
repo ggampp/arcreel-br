@@ -1200,7 +1200,7 @@ export default {
   'chat_question_answer_label': 'Answered',
   // MCP tool display names (single source of truth: ARCREEL_MCP_TOOL_IDS in
   // server/agent_runtime/sdk_tools/__init__.py; tests/test_frontend_mcp_tool_i18n.py
-  // enforces all locales stay in sync — adding a backend tool without wiring zh/en/vi fails CI)
+  // enforces all locales stay in sync — adding a backend tool without wiring pt/en fails CI)
   'tool_name_list_pending_assets': 'List pending assets',
   'tool_name_generate_assets': 'Generate assets',
   'tool_name_generate_storyboards': 'Generate storyboards',
@@ -1222,6 +1222,8 @@ export default {
   'tool_name_remove_segment': 'Remove shot',
   'tool_name_split_segment': 'Split shot',
   'tool_name_patch_project': 'Edit project assets',
+  'tool_name_critique_ad_consistency': 'Critique ad product consistency',
+  'tool_name_brand_analyzer_prompt': 'Brand analyzer draft prompt',
   // Skill display names (single source of truth: user-invocable SKILL.md files
   // under agent_runtime_profile/.claude/skills/; tests/test_frontend_skill_i18n.py enforces parity)
   'skill_name_manga_workflow': 'Video workflow',

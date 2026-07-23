@@ -189,12 +189,15 @@ def build_ad_prompt(
     episode: int = 1,
     aspect_ratio: str = "9:16",
     target_language: str = "中文",
+    brand_profile: dict | None = None,
 ) -> str:
     """构建广告/短片模式的剧本生成 prompt。
 
     ``products`` 非空走带货八段框架 + 审定配比表；为空自动分流通用短片 prompt
     （无带货框架，不设显式子模式开关）。
     """
+    from lib.brand_profile import format_brand_profile_block
+
     if not isinstance(target_duration, int) or isinstance(target_duration, bool) or target_duration <= 0:
         raise ValueError(f"target_duration 必须为正整数秒，当前为 {target_duration!r}")
 
@@ -203,6 +206,7 @@ def build_ad_prompt(
     scene_names = list(scenes.keys())
     prop_names = list(props.keys())
     product_names = list(products.keys())
+    brand_block = format_brand_profile_block(brand_profile)
 
     common_header = f"""**输出语言**：所有字符串值必须使用 {target_language}；JSON 键名 / 枚举值保持英文。
 **结构约束**：字段 / 枚举 / 必填项由 response_schema 强制；本提示只解释**如何写好每个字段的内容**。
@@ -222,6 +226,10 @@ def build_ad_prompt(
 描述：{style_description}
 画面比例：{aspect_ratio}（{_format_aspect_ratio_desc(aspect_ratio)}）
 </style>
+
+<brand_profile>
+{brand_block}
+</brand_profile>
 
 <brief>
 {brief or "（未提供，按产品信息与常识自行设计）"}

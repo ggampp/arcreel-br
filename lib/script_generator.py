@@ -434,6 +434,7 @@ class ScriptGenerator:
             supported_durations=supported,
             episode=episode,
             aspect_ratio=self._resolve_aspect_ratio(),
+            brand_profile=self.project_json.get("brand_profile") or {},
         )
 
     async def build_prompt(self, episode: int) -> str:

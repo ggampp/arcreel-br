@@ -798,6 +798,12 @@ async def execute_storyboard_task(
 
         _prev_path = resolve_previous_storyboard_path(_project_path, _items, _id_field, resource_id)
         _prompt_text = _normalize_storyboard_prompt(prompt, _project.get("style", ""))
+        # ad BrandProfile.style_prefix：与剧本/视频层同源注入，保证全片语气与外观前缀一致
+        from lib.brand_profile import brand_style_prompt_prefix
+
+        _brand = brand_style_prompt_prefix(_project)
+        if _brand:
+            _prompt_text = f"{_brand}{_prompt_text}"
         _ref_images = _collect_reference_images(
             _project,
             _project_path,
@@ -987,13 +993,20 @@ async def execute_video_task(
         prompt = {**prompt, "dialogue": utterances_to_dialogue(item.get("utterances"))}
 
     prompt_text = _normalize_video_prompt(prompt)
+    # ad BrandProfile 前缀（与分镜层同源）
+    from lib.brand_profile import brand_style_prompt_prefix
+
+    _brand = brand_style_prompt_prefix(project)
+    if _brand:
+        prompt_text = f"{_brand}{prompt_text}"
+
     aspect_ratio = get_aspect_ratio(project, "videos")
     seed = payload.get("seed")
     service_tier = payload.get("video_provider_settings", {}).get("service_tier", "default")
 
     # 产品镜头的视频层二次注入：把产品参考注入视频请求（零额外图像成本），
     # 按后端「首帧叠加参考」能力门控——不支持的后端正常降级、不报错。
-    # 首尾帧锚定不在本路径（end_image 槽位保留，capability-gated 后续增强）。
+    # ad 路径另见 last-frame continuation（start_image 可换为上一镜尾帧）。
     _gated_product_refs = await asyncio.to_thread(_product_references_for_video, generator, project, project_path, item)
     product_reference_images = [ref["image"] for ref in _gated_product_refs] or None
     if product_reference_images:
@@ -1045,32 +1058,80 @@ async def execute_video_task(
     # 此处不预先 int() 截断，避免把非整数秒静默修正成「碰巧合法」的值。
     assert_duration_supported(duration_seconds, supported_durations)
 
-    end_image = None  # 宫格模式不再使用首尾帧，统一走普通图生视频
+    # ad last-frame continuation：上一镜视频尾帧优先作 start_image（见 lib/ad_continuation）
+    start_image = storyboard_file
+    if project.get("content_mode") == "ad" and script_file:
+        from lib.ad_continuation import resolve_continuation_start_image
 
-    _, version, _, video_uri = await generator.generate_video_async(
-        prompt=prompt_text,
-        resource_type="videos",
-        resource_id=resource_id,
-        start_image=storyboard_file,
-        end_image=end_image,
-        reference_images=product_reference_images,
-        aspect_ratio=aspect_ratio,
-        duration_seconds=duration_seconds,
-        resolution=resolution,
-        task_id=task_id,
-        seed=seed,
-        service_tier=service_tier,
-    )
+        def _load_script_for_continuation():
+            return get_project_manager().load_script(project_name, script_file)
 
-    return await _finalize_video_task(
+        try:
+            _script = await asyncio.to_thread(_load_script_for_continuation)
+            start_image, _used_cont = await resolve_continuation_start_image(
+                project=project,
+                project_path=project_path,
+                script=_script,
+                resource_id=resource_id,
+                storyboard_file=storyboard_file,
+            )
+            # 续写时把本镜分镜图附加为参考，保留构图意图（若尚未塞满产品 ref）
+            if _used_cont and storyboard_file.is_file():
+                extra = list(product_reference_images or [])
+                if storyboard_file not in extra:
+                    extra.append(storyboard_file)
+                product_reference_images = extra or None
+        except Exception:
+            logger.warning("ad continuation 解析失败，降级为 storyboard 首帧: %s", resource_id, exc_info=True)
+            start_image = storyboard_file
+
+    end_image = None  # FLF 尾帧锚定仍为后续增强；continuation 走 start 换帧
+
+    from lib.ad_timeline import ad_video_takes
+
+    takes = ad_video_takes(project, payload.get("takes_count"))
+    base_seed = seed
+    last_version = 0
+    last_uri: str | None = None
+    for take_idx in range(takes):
+        take_seed = None
+        if base_seed is not None:
+            try:
+                take_seed = int(base_seed) + take_idx
+            except (TypeError, ValueError):
+                take_seed = base_seed
+        elif takes > 1:
+            take_seed = 1000 + take_idx
+
+        _, version, _, video_uri = await generator.generate_video_async(
+            prompt=prompt_text,
+            resource_type="videos",
+            resource_id=resource_id,
+            start_image=start_image,
+            end_image=end_image,
+            reference_images=product_reference_images,
+            aspect_ratio=aspect_ratio,
+            duration_seconds=duration_seconds,
+            resolution=resolution,
+            task_id=task_id if take_idx == 0 else None,
+            seed=take_seed,
+            service_tier=service_tier,
+        )
+        last_version = version
+        last_uri = video_uri
+
+    result = await _finalize_video_task(
         project_name=project_name,
         script_file=script_file,
         project_path=project_path,
         resource_id=resource_id,
-        version=version,
-        video_uri=video_uri,
+        version=last_version,
+        video_uri=last_uri,
         generator=generator,
+        extract_last_frame=(project.get("content_mode") == "ad"),
     )
+    result["takes"] = takes
+    return result
 
 
 async def _finalize_video_task(
@@ -1082,8 +1143,13 @@ async def _finalize_video_task(
     version: int,
     video_uri: str | None,
     generator: Any,
+    extract_last_frame: bool = False,
 ) -> dict[str, Any]:
-    """Normal + resume 共用的 finalize 逻辑：写 scene asset + 抽缩略图 + 返回 result dict。"""
+    """Normal + resume 共用的 finalize 逻辑：写 scene asset + 抽缩略图 + 返回 result dict。
+
+    ``extract_last_frame``：ad 路径额外提取尾帧写入 ``storyboard_last_image``，
+    供下一镜 continuation 与一致性评审复用。
+    """
 
     def _update_video_metadata():
         get_project_manager().update_scene_asset(
@@ -1118,11 +1184,28 @@ async def _finalize_video_task(
     else:
         thumbnail_file.unlink(missing_ok=True)
 
+    last_frame_rel: str | None = None
+    if extract_last_frame and video_file.is_file():
+        from lib.ad_continuation import ensure_last_frame, last_frame_relpath
+
+        last_path = project_path / last_frame_relpath(resource_id)
+        frame = await ensure_last_frame(video_file, last_path)
+        if frame is not None:
+            last_frame_rel = last_frame_relpath(resource_id)
+            await asyncio.to_thread(
+                get_project_manager().update_scene_asset,
+                project_name=project_name,
+                script_filename=script_file,
+                scene_id=resource_id,
+                asset_type="storyboard_last_image",
+                asset_path=last_frame_rel,
+            )
+
     created_at = await asyncio.to_thread(
         lambda: generator.versions.get_versions("videos", resource_id)["versions"][-1]["created_at"]
     )
 
-    return {
+    out: dict[str, Any] = {
         "version": version,
         "file_path": f"videos/scene_{resource_id}.mp4",
         "created_at": created_at,
@@ -1130,6 +1213,9 @@ async def _finalize_video_task(
         "resource_id": resource_id,
         "video_uri": video_uri,
     }
+    if last_frame_rel:
+        out["last_frame"] = last_frame_rel
+    return out
 
 
 async def execute_character_task(

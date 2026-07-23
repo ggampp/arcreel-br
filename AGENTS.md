@@ -9,8 +9,10 @@ frontend/ (React SPA)  →  server/ (FastAPI)  →  lib/ (核心库)
   zustand 状态管理          (Claude Agent SDK)
 ```
 
-## 语言规范
-- **回答用户必须使用中文**：所有回复、任务清单及计划文件，均须使用中文
+## 语言规范 / Idioma
+- **Respostas ao usuário em português brasileiro (pt-BR)**：todas as respostas, listas de tarefas e arquivos de plano devem ser em português do Brasil.
+- **UI i18n da plataforma**：apenas `pt` (padrão) e `en` — ver `lib/i18n/` e `frontend/src/i18n/`.
+- Código, identificadores e commits seguem as convenções do repositório (Conventional Commits em inglês quando aplicável ao fluxo do projeto).
 
 ## 开发命令
 
@@ -117,7 +119,7 @@ ConfigService（`service.py`）→ Repository（持久化 + 密钥脱敏）→ R
 
 ### lib/i18n/ — 国际化
 
-后端翻译层，支持 `zh`/`en`/`vi` 三种语言。`{zh,en,vi}/` 各文件按命名空间拆分：`errors`（错误与校验）、`providers`（供应商名称/描述）、`assets`（资产相关消息）、`emails`（邮件模板）、`system`（系统消息）、`templates`（模板消息）。
+后端翻译层，支持 `pt`（Português Brasil）/`en` 两种语言。`{pt,en}/` 各文件按命名空间拆分：`errors`（错误与校验）、`providers`（供应商名称/描述）、`assets`（资产相关消息）、`emails`（邮件模板）、`system`（系统消息）、`templates`（模板消息）。
 - `Translator` 类型 = `Annotated[Callable[..., str], Depends(get_translator)]`，从 `Accept-Language` 解析语言
 - 路由中通过 `_t: Translator` 依赖注入，调用 `_t("key", param=value)` 获取翻译文本
 
@@ -128,7 +130,7 @@ ConfigService（`service.py`）→ Repository（持久化 + 密钥脱敏）→ R
 - 状态管理：`zustand`（stores 在 `frontend/src/stores/`）
 - 路径别名：`@/` → `frontend/src/`
 - Vite 代理：`/api` → `http://127.0.0.1:1241`
-- i18n：`i18next` + `react-i18next`，翻译文件在 `frontend/src/i18n/{zh,en,vi}/`，命名空间 `common`/`dashboard`/`auth`/`errors`/`assets`/`templates`
+- i18n：`i18next` + `react-i18next`，翻译文件在 `frontend/src/i18n/{pt,en}/`（默认 pt-BR），命名空间 `common`/`dashboard`/`auth`/`errors`/`assets`/`templates`
 
 ## 关键设计模式
 
@@ -191,10 +193,10 @@ Skill 的创建、评估和维护流程参考 `/skill-creator` skill。
 
 ## 国际化 (i18n) 规范
 
-- 禁止硬编码中文字符串，新增面向用户的文本须同时添加 `zh`/`en`/`vi` 翻译 key
+- 禁止硬编码面向用户的字符串，新增文本须同时添加 `pt`/`en` 翻译 key（UI 仅葡萄牙语巴西与英语）
 - **仅面向用户的文本需 i18n**：router 响应 / email / 前端文本走 Translator；仅面向 agent 的字符串（MCP tool 返回、agent prompt、service 层异常、logger）豁免，不要为其加翻译 key
 - 后端：`_t: Translator` 依赖注入；前端：`useTranslation("namespace")`
-- CI 有 `tests/test_i18n_consistency.py` 校验 zh/en/vi 三语 key 不漂移
+- CI 有 `tests/test_i18n_consistency.py` 校验 pt/en 双语 key 不漂移
 
 ## 环境配置
 
@@ -219,7 +221,7 @@ API Key、后端选择、模型配置等通过 WebUI 配置页（`/settings`）�
 - **ruff**：line-length 120，提交前对修改的 Python 文件执行 `uv run ruff check <files> && uv run ruff format <files>`
 - **basedpyright**：standard 模式 + `reportMissingTypeStubs = false`，CI 强制 0 error，pre-push hook 跑全量扫描；本地随手 `uv run basedpyright` 校验。tests/ 内 `reportOptional*` 和 `unknown*` 系列降级为 warning，避免 mock-heavy 测试噪声；第三方 untyped 库（ffmpeg-python、pyJianYingDraft、volcenginesdkarkruntime、xai_sdk.chat、docx2txt/mammoth/ebooklib）通过行级 `# pyright: ignore[...]` 处理
 - **pytest**：`asyncio_mode = "auto"`，CI 覆盖率 ≥80%，共用 fixtures 在 `tests/conftest.py`
-- **i18n 一致性**：`tests/test_i18n_consistency.py` 校验 zh/en/vi 三语 key 不漂移；新增 i18n key 时三语都要补全
+- **i18n 一致性**：`tests/test_i18n_consistency.py` 校验 pt/en 双语 key 不漂移；新增 i18n key 时双语都要补全
 - **依赖管理**：前后端新增/升级依赖一律用 `uv add` / `pnpm add`（不手写版本号到 pyproject.toml / package.json）；加完依赖同步 `.github/dependabot.yml` 的 patterns 归入对应分组，避免落到 all-other 兜底组
 - **提交与 PR**：标题遵循 Conventional Commits（`type(scope): 摘要`，type 取值与 changelog 分类见 `CONTRIBUTING.md` / `.release-please-config.json`）。squash 合并下标题即 changelog 条目——写用户可感知的收益、范围词用产品术语，不写实现术语（status_code、内部类名等）且诚实限定范围；改正时只改标题不 amend commit
 

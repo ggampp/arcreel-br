@@ -12,41 +12,34 @@ from .en import errors as en_errors
 from .en import providers as en_providers
 from .en import system as en_system
 from .en import templates as en_templates
-from .vi import assets as vi_assets
-from .vi import emails as vi_emails
-from .vi import errors as vi_errors
-from .vi import providers as vi_providers
-from .vi import system as vi_system
-from .vi import templates as vi_templates
-from .zh import assets as zh_assets
-from .zh import emails as zh_emails
-from .zh import errors as zh_errors
-from .zh import providers as zh_providers
-from .zh import system as zh_system
-from .zh import templates as zh_templates
+from .pt import assets as pt_assets
+from .pt import emails as pt_emails
+from .pt import errors as pt_errors
+from .pt import providers as pt_providers
+from .pt import system as pt_system
+from .pt import templates as pt_templates
 
 logger = logging.getLogger(__name__)
 
-# Default locale
-DEFAULT_LOCALE = "zh"
-SUPPORTED_LOCALES = ["zh", "en", "vi"]
+# Default locale: Brazilian Portuguese
+DEFAULT_LOCALE = "pt"
+SUPPORTED_LOCALES = ["pt", "en"]
 
 # Mapping from locale code to human-readable language name
 LOCALE_LANGUAGE_MAP: dict[str, str] = {
-    "zh": "中文",
+    "pt": "Português (Brasil)",
     "en": "English",
-    "vi": "Tiếng Việt",
 }
 
 # Merged message dictionary
 MESSAGES: dict[str, dict[str, str]] = {
-    "zh": {
-        **zh_errors.MESSAGES,
-        **zh_system.MESSAGES,
-        **zh_emails.MESSAGES,
-        **zh_providers.MESSAGES,
-        **zh_templates.MESSAGES,
-        **zh_assets.MESSAGES,
+    "pt": {
+        **pt_errors.MESSAGES,
+        **pt_system.MESSAGES,
+        **pt_emails.MESSAGES,
+        **pt_providers.MESSAGES,
+        **pt_templates.MESSAGES,
+        **pt_assets.MESSAGES,
     },
     "en": {
         **en_errors.MESSAGES,
@@ -56,29 +49,30 @@ MESSAGES: dict[str, dict[str, str]] = {
         **en_templates.MESSAGES,
         **en_assets.MESSAGES,
     },
-    "vi": {
-        **vi_errors.MESSAGES,
-        **vi_system.MESSAGES,
-        **vi_emails.MESSAGES,
-        **vi_providers.MESSAGES,
-        **vi_templates.MESSAGES,
-        **vi_assets.MESSAGES,
-    },
 }
 
 
 def get_locale(request: Request) -> str:
-    """Get locale from Accept-Language header."""
+    """Get locale from Accept-Language header.
+
+    Supports BCP47 tags such as ``pt-BR``, ``en-US`` by matching the primary
+    subtag against :data:`SUPPORTED_LOCALES` (``pt``, ``en``).
+    """
     accept_lang = request.headers.get("accept-language", "")
     if not accept_lang:
         return DEFAULT_LOCALE
 
-    # Simple parser for Accept-Language header
-    # e.g., "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7"
+    # e.g. "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
     for lang_range in accept_lang.split(","):
-        lang = lang_range.split(";")[0].split("-")[0].strip().lower()
-        if lang in SUPPORTED_LOCALES:
-            return lang
+        raw = lang_range.split(";")[0].strip().lower().replace("_", "-")
+        if not raw:
+            continue
+        # Exact match first (if we ever add regional codes)
+        if raw in SUPPORTED_LOCALES:
+            return raw
+        primary = raw.split("-")[0]
+        if primary in SUPPORTED_LOCALES:
+            return primary
 
     return DEFAULT_LOCALE
 

@@ -325,6 +325,7 @@ async def upload_file(
                 except KeyError:
                     pass  # 产品不存在，忽略
 
+            isolated_path_rel: str | None = None
             if upload_type == "product_ref" and name:
                 try:
                     with project_change_source("webui"):
@@ -339,12 +340,33 @@ async def upload_file(
                     target_path.unlink(missing_ok=True)
                     raise HTTPException(status_code=404, detail=_t("product_not_found", name=name))
 
-            return {
+                # 可选背景隔离：生成 *_isolated.png 作为额外参考（不覆盖原件锚点，ADR 0034）
+                try:
+                    from lib.product_isolation import isolate_product_file, isolated_ref_filename
+
+                    iso_name = isolated_ref_filename(filename)
+                    iso_abs = target_dir / iso_name
+                    if isolate_product_file(target_path, iso_abs) is not None:
+                        isolated_path_rel = f"products/refs/{iso_name}"
+                        with project_change_source("webui"):
+                            get_project_manager().add_product_reference_image(
+                                project_name,
+                                name,
+                                isolated_path_rel,
+                            )
+                except Exception:
+                    logger.warning("产品背景隔离跳过/失败: %s/%s", project_name, name, exc_info=True)
+
+            result_payload = {
                 "success": True,
                 "filename": filename,
                 "path": relative_path,
                 "url": f"/api/v1/files/{project_name}/{relative_path}",
             }
+            if isolated_path_rel:
+                result_payload["isolated_path"] = isolated_path_rel
+                result_payload["isolated_url"] = f"/api/v1/files/{project_name}/{isolated_path_rel}"
+            return result_payload
 
         return await asyncio.to_thread(_sync)
 

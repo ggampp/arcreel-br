@@ -591,6 +591,98 @@ def add_background_music(video_path: Path, music_path: Path, output_path: Path, 
         raise RuntimeError(f"添加背景音乐失败: {result.stderr}")
 
 
+def _escape_drawtext(text: str) -> str:
+    """ffmpeg drawtext 特殊字符转义。"""
+    return (
+        text.replace("\\", "\\\\")
+        .replace(":", "\\:")
+        .replace("'", "\\'")
+        .replace("%", "\\%")
+        .replace("\n", " ")
+    )
+
+
+def burn_text_overlays(video_path: Path, overlays: list[dict], output_path: Path) -> None:
+    """用 drawtext 烧录 ad_timeline.text_overlays。
+
+    依赖系统字体；找不到字体时降级跳过叠层并打印警告。
+    """
+    if not overlays:
+        raise ValueError("overlays 为空")
+
+    # 跨平台字体候选
+    font_candidates = [
+        Path("C:/Windows/Fonts/msyh.ttc"),
+        Path("C:/Windows/Fonts/arial.ttf"),
+        Path("/System/Library/Fonts/PingFang.ttc"),
+        Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+    ]
+    fontfile = next((str(p) for p in font_candidates if p.is_file()), None)
+
+    filters: list[str] = []
+    for ov in overlays:
+        text = _escape_drawtext(str(ov.get("text") or ""))
+        if not text:
+            continue
+        start = float(ov.get("start", 0))
+        end = float(ov.get("end", start + 2))
+        pos = ov.get("position") or "bottom"
+        if pos == "top":
+            y_expr = "h*0.08"
+        elif pos == "center":
+            y_expr = "(h-text_h)/2"
+        else:
+            y_expr = "h*0.85-text_h"
+        font_arg = f"fontfile={fontfile}:" if fontfile else ""
+        filters.append(
+            f"drawtext={font_arg}text='{text}':fontsize=36:fontcolor=white:"
+            f"borderw=2:bordercolor=black@0.8:x=(w-text_w)/2:y={y_expr}:"
+            f"enable='between(t,{start:.3f},{end:.3f})'"
+        )
+
+    if not filters:
+        raise ValueError("无有效 text_overlays")
+
+    vf = ",".join(filters)
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path),
+        "-vf",
+        vf,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-crf",
+        "18",
+        "-c:a",
+        "copy",
+        str(output_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"烧录文字叠层失败: {result.stderr}")
+
+
+def _collect_clip_items(script: dict) -> tuple[list[dict], str]:
+    """返回 (条目列表, id 字段名)。支持 drama scenes[] 与 ad shots[]。"""
+    if isinstance(script.get("scenes"), list):
+        return script["scenes"], "scene_id"
+    if isinstance(script.get("shots"), list):
+        return script["shots"], "shot_id"
+    content_mode = script.get("content_mode") or "unknown"
+    generation_mode = script.get("generation_mode") or "storyboard"
+    raise RuntimeError(
+        f"compose_video.py 支持 drama（scenes[]）与 ad（shots[]）；"
+        f"当前剧本 content_mode={content_mode}, generation_mode={generation_mode}，"
+        "narration / 纯 reference_video 请使用 Web 端剪映草稿导出"
+    )
+
+
 def compose_video(
     script_filename: str, output_filename: str = None, music_path: str = None, use_transitions: bool = True
 ) -> Path:
@@ -610,25 +702,22 @@ def compose_video(
 
     # 加载剧本（pm.load_script 内部已用 _safe_subpath 过滤 ../ 等逃逸尝试）
     script = pm.load_script(project_name, script_filename)
+    try:
+        project = pm.load_project(project_name)
+    except FileNotFoundError:
+        project = {}
 
-    # 仅支持 drama 模式（顶层 scenes[]）；narration/ad/reference_video 给友好错误
-    if "scenes" not in script:
-        content_mode = script.get("content_mode") or "unknown"
-        generation_mode = script.get("generation_mode") or "storyboard"
-        raise RuntimeError(
-            f"compose_video.py 目前仅支持 drama 模式（剧本顶层需有 scenes[]）；"
-            f"当前剧本 content_mode={content_mode}, generation_mode={generation_mode}，"
-            "请使用 Web 端剪映草稿导出"
-        )
+    items, id_field = _collect_clip_items(script)
 
     # 收集视频片段
     video_paths = []
     transitions = []
 
-    for scene in script["scenes"]:
+    for scene in items:
         video_clip = scene.get("generated_assets", {}).get("video_clip")
+        item_id = scene.get(id_field) or scene.get("scene_id") or scene.get("shot_id") or "?"
         if not video_clip:
-            raise ValueError(f"场景 {scene['scene_id']} 缺少视频片段")
+            raise ValueError(f"条目 {item_id} 缺少视频片段")
 
         # 与 --music / output 同样的围栏：剧本里 video_clip 写成绝对路径或 ../
         # 形式时，未 resolve 的 `project_dir / video_clip` 会落到项目外（且字面
@@ -650,8 +739,11 @@ def compose_video(
 
     # 确定输出路径：强制落在 project_dir/output/ 内，拒绝 ../ 逃逸
     if output_filename is None:
-        chapter = script["novel"].get("chapter", "output").replace(" ", "_")
-        output_filename = f"{chapter}_final.mp4"
+        if isinstance(script.get("novel"), dict):
+            chapter = script["novel"].get("chapter", "output").replace(" ", "_")
+            output_filename = f"{chapter}_final.mp4"
+        else:
+            output_filename = "ad_final.mp4"
 
     # 防御 output/ 软链接绕过：若 `project_dir/output` 本身指向项目外目录，
     # resolve 后的 output_dir 会落到项目外，is_relative_to 校验同样会放行——
@@ -664,6 +756,12 @@ def compose_video(
     if not output_path.is_relative_to(output_dir):
         raise ValueError(f"输出文件名逃逸到 output/ 之外: {output_filename}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # music：CLI > project.ad_timeline.music_track > 无
+    if not music_path and isinstance(project.get("ad_timeline"), dict):
+        track = project["ad_timeline"].get("music_track")
+        if isinstance(track, str) and track.strip():
+            music_path = track.strip()
 
     # music 路径围栏 + 存在性 fail-fast 前置校验：不要让用户等到视频拼完才发现
     # BGM 路径越界或文件缺失（自动化场景下静默 warning 容易把失败当成功处理）
@@ -686,6 +784,22 @@ def compose_video(
         concatenate_simple(video_paths, output_path)
 
     print(f"✅ 视频合成完成: {output_path}")
+
+    # ad 文字叠层（project.ad_timeline.text_overlays）
+    overlays = []
+    if isinstance(project.get("ad_timeline"), dict):
+        raw_ov = project["ad_timeline"].get("text_overlays")
+        if isinstance(raw_ov, list):
+            overlays = [o for o in raw_ov if isinstance(o, dict) and o.get("text")]
+    if overlays:
+        print(f"📝 正在烧录 {len(overlays)} 条文字叠层...")
+        overlay_out = output_path.with_stem(output_path.stem + "_overlay")
+        try:
+            burn_text_overlays(output_path, overlays, overlay_out)
+            output_path = overlay_out
+            print(f"✅ 文字叠层完成: {output_path}")
+        except Exception as exc:
+            print(f"⚠️  文字叠层失败，保留无叠层成片: {exc}")
 
     # 添加背景音乐（存在性已在前置校验保证）
     if music_file is not None:

@@ -234,9 +234,9 @@ class TestAssistantServiceMore:
         service.event_log = _FakeEventLogService()
 
         image = SimpleNamespace(data="ZmFrZQ==", media_type="image/png")
-        await service.send_or_create("demo", "hello", session_id="s1", images=[image], locale="vi")
+        await service.send_or_create("demo", "hello", session_id="s1", images=[image], locale="pt")
 
-        assert sm.sent_kwargs[0]["locale"] == "vi"
+        assert sm.sent_kwargs[0]["locale"] == "pt"
         assert sm.sent_kwargs[0]["echo_content"] is not None
 
     @pytest.mark.asyncio

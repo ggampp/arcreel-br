@@ -132,7 +132,7 @@ class OptionsAssembler:
         """
         parts = [_PERSONA_PROMPT]
 
-        lang = LOCALE_LANGUAGE_MAP.get(locale, "中文")
+        lang = LOCALE_LANGUAGE_MAP.get(locale, LOCALE_LANGUAGE_MAP.get(DEFAULT_LOCALE, "Português (Brasil)"))
         parts.append(
             f"\n## 语言规范\n\n"
             f"- **回答用户必须使用{lang}**：所有回复、思考过程、任务清单及计划文件，均须使用{lang}\n"

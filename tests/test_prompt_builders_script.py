@@ -366,7 +366,7 @@ class TestDramaDurationSpeechLowerBound:
 
     def test_speech_rate_injected_from_single_source(self):
         # 语速数字来自 lib.speech_rate 单一真相源，按 source_language 取；zh 计字、en / vi 计词
-        for lang in ("zh", "en", "vi"):
+        for lang in ("pt", "en", "zh", "vi"):
             rate = speech_rate_units_per_second(lang)
             assert f"{rate:g}" in self._normalize(source_language=lang)
         assert "字/秒" in self._normalize(source_language="zh")

@@ -180,18 +180,18 @@ class TestSessionManagerMore:
         self, session_manager, meta_store, tmp_path, monkeypatch
     ):
         """Cold-recovery revival rebuilds the language regulation from the
-        caller's locale instead of falling back to the default zh."""
+        caller's locale instead of falling back to the default pt."""
 
         (tmp_path / "projects" / "demo").mkdir(parents=True)
-        meta = await meta_store.create("demo", "sdk-locale-vi")
+        meta = await meta_store.create("demo", "sdk-locale-en")
 
         async with _cold_revival_clients(session_manager, monkeypatch) as created_clients:
-            await session_manager.get_or_connect(meta.id, locale="vi")
+            await session_manager.get_or_connect(meta.id, locale="en")
             await asyncio.sleep(0)
             assert created_clients
             append = created_clients[0].options.kwargs["system_prompt"]["append"]
-            assert "Tiếng Việt" in append
-            assert "中文" not in append
+            assert "English" in append
+            assert "Português" not in append
             await session_manager.close_session(meta.id)
 
     @pytest.mark.asyncio

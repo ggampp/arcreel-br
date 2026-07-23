@@ -517,7 +517,7 @@ class TestPatchProviderConfigMaxWorkersValidation:
     """
 
     @staticmethod
-    def _make_db_app(locale: str = "zh") -> FastAPI:
+    def _make_db_app(locale: str = "pt") -> FastAPI:
         from contextlib import asynccontextmanager
 
         from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -560,7 +560,7 @@ class TestPatchProviderConfigMaxWorkersValidation:
         assert detail != "max_workers_must_be_positive_integer"
         assert providers._FIELD_META[key]["label"] in detail
 
-    @pytest.mark.parametrize("locale", ["zh", "en", "vi"])
+    @pytest.mark.parametrize("locale", ["pt", "en"])
     def test_error_message_renders_in_all_locales(self, locale: str):
         with TestClient(self._make_db_app(locale)) as client:
             resp = client.patch("/api/v1/providers/dashscope/config", json={"video_max_workers": "abc"})

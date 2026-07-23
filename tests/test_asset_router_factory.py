@@ -11,7 +11,7 @@ from server.auth import CurrentUserInfo, get_current_user
 from server.routers import characters
 from tests.conftest import make_translator
 
-# 兜底 500 的默认 locale 文案：测试未覆盖 get_translator，端点回落到 DEFAULT_LOCALE("zh")，
+# 兜底 500 的默认 locale 文案：测试未覆盖 get_translator，端点回落到 DEFAULT_LOCALE("pt")，
 # 与 make_translator() 默认 locale 一致。
 _INTERNAL_ERROR_DETAIL = make_translator()("internal_server_error")
 

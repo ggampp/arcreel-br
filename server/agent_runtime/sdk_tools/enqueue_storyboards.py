@@ -87,6 +87,16 @@ def _build_prompt(
     return f"{style_prefix}{image_prompt}"
 
 
+def _apply_brand_prefix(prompt: str, project: dict) -> str:
+    """ad 项目把 BrandProfile.style_prefix 前置到分镜 prompt。"""
+    from lib.brand_profile import brand_style_prompt_prefix
+
+    prefix = brand_style_prompt_prefix(project)
+    if not prefix:
+        return prompt
+    return f"{prefix}{prompt}"
+
+
 def _select_items(items: list[dict[str, Any]], id_field: str, segment_ids: list[str] | None) -> list[dict[str, Any]]:
     # ``None`` 和 ``[]`` 含义不同：``None`` = "不传过滤，默认扫所有缺图项"；
     # ``[]`` = "显式空选择，应当返回空列表交由 handler 报错"。
@@ -103,11 +113,14 @@ def _build_specs(
     style_description: str,
     id_field: str,
     script_filename: str,
+    project: dict[str, Any] | None = None,
 ) -> list[TaskSpec]:
     specs: list[TaskSpec] = []
     for plan in plans:
         item = items_by_id[plan.resource_id]
         prompt = _build_prompt(item, style, style_description, id_field)
+        if project:
+            prompt = _apply_brand_prefix(prompt, project)
         specs.append(
             TaskSpec.from_request(
                 task_type="storyboard",
@@ -193,6 +206,7 @@ def generate_storyboards_tool(ctx: ToolContext):
                 style_description,
                 id_field,
                 script_filename,
+                project=project_data,
             )
 
             recorder = _FailureRecorder(project_dir / "storyboards")

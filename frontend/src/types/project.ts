@@ -44,6 +44,31 @@ export interface Product {
   selling_points?: string[];
 }
 
+/** 仅 ad：Brand Analyzer 产出的项目级品牌档案。 */
+export interface BrandProfile {
+  visual_description?: string;
+  tone_of_voice?: string;
+  target_audience?: string;
+  brand_colors?: string[];
+  style_keywords?: string[];
+  /** 注入全部分镜/视频 prompt 的全局前缀。 */
+  style_prefix?: string;
+}
+
+export interface AdTextOverlay {
+  text: string;
+  start: number;
+  end: number;
+  position?: "top" | "center" | "bottom";
+}
+
+/** 仅 ad：成片时间线元数据。 */
+export interface AdTimeline {
+  text_overlays?: AdTextOverlay[];
+  /** 项目内相对路径，如 music/upbeat.mp3 */
+  music_track?: string | null;
+}
+
 export interface AspectRatio {
   characters?: string;
   scenes?: string;
@@ -135,6 +160,14 @@ export interface ProjectData {
   target_duration?: number;
   /** 仅 ad：创作诉求短文本（可空）。 */
   brief?: string;
+  /** 仅 ad：品牌分析档案（Brand Analyzer 产出，style_prefix 注入全片）。 */
+  brand_profile?: BrandProfile;
+  /** 仅 ad：成片时间线（文字叠层 + 音乐轨）。 */
+  ad_timeline?: AdTimeline;
+  /** 仅 ad：镜头间 last-frame 续写（默认 true）。 */
+  ad_continuation?: boolean;
+  /** 仅 ad：每镜视频 take 数 1–3（默认 2）。 */
+  ad_video_takes?: number;
   schema_version?: number;
   episodes: EpisodeMeta[];
   characters: Record<string, Character>;

@@ -608,7 +608,7 @@ class TestProjectManagerMore:
         with pytest.raises(ValueError):
             await pm_empty.generate_overview("demo")
 
-    @pytest.mark.parametrize("lang", ["zh", "en", "vi"])
+    @pytest.mark.parametrize("lang", ["pt", "en", "zh"])
     @pytest.mark.asyncio
     async def test_generate_overview_source_language_synced(self, tmp_path, monkeypatch, lang):
         pm = ProjectManager(tmp_path / "projects")

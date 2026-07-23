@@ -817,7 +817,7 @@ class TestPatchProjectSettings:
         assert out.get("is_error") is True
         assert "arbitrary_field" not in ctx.pm.load_project("demo")
 
-    @pytest.mark.parametrize("lang", ["zh", "en", "vi"])
+    @pytest.mark.parametrize("lang", ["pt", "en"])
     async def test_set_source_language_allowed_values(self, ctx: ToolContext, lang: str) -> None:
         """source_language 作为 user-confirmed 恢复通道(overview 失败/跳过时),enum 校验."""
         out = await _call(patch_project_tool(ctx), {"settings": {"source_language": lang}})
