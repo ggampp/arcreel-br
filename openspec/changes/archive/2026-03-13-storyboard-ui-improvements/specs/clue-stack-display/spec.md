@@ -1,53 +1,53 @@
 ## ADDED Requirements
 
-### Requirement: 线索缩略图栈展示
+### Requirement: Pilha de miniaturas de pistas
 
-SegmentCard 头部 SHALL 在角色头像栈左侧展示当前分镜关联线索（`clues_in_segment` / `clues_in_scene`）的图片缩略图，形状为圆角方形，叠放样式与角色头像栈一致，最多显示 4 个，超出部分以 `+n` 溢出徽章表示。
+O cabeçalho do SegmentCard SHALL, à esquerda da pilha de avatares de personagens, exibir miniaturas das imagens das pistas associadas ao storyboard atual (`clues_in_segment` / `clues_in_scene`), em formato quadrado arredondado, empilhadas no mesmo estilo da pilha de avatares, mostrando no máximo 4, com o excedente indicado por badge de overflow `+n`.
 
-#### Scenario: 有线索图片时展示缩略图
+#### Scenario: Exibir miniatura quando a pista tem imagem
 
-- **WHEN** 线索对象存在 `clue_sheet` 路径
-- **THEN** 展示对应图片，形状为圆角方形（`rounded`），尺寸与角色头像一致（`h-7 w-7`）
+- **WHEN** o objeto de pista possui caminho `clue_sheet`
+- **THEN** a imagem correspondente é exibida em formato quadrado arredondado (`rounded`), com tamanho igual ao avatar de personagem (`h-7 w-7`)
 
-#### Scenario: 无线索图片时展示首字母占位
+#### Scenario: Placeholder com inicial quando a pista não tem imagem
 
-- **WHEN** 线索对象不存在 `clue_sheet` 路径
-- **THEN** 展示线索名称首字母色块（圆角方形），颜色由名称哈希值确定，与角色头像的 fallback 规则一致
+- **WHEN** o objeto de pista não possui caminho `clue_sheet`
+- **THEN** é exibido um bloco colorido com a inicial do nome da pista (quadrado arredondado), com cor determinada pelo hash do nome, seguindo a mesma regra de fallback dos avatares de personagem
 
-#### Scenario: 分镜无关联线索时不渲染
+#### Scenario: Não renderizar quando o storyboard não tem pistas associadas
 
-- **WHEN** 分镜的 `clues_in_segment` / `clues_in_scene` 为空数组
-- **THEN** 线索缩略图栈不渲染，头部右侧仅显示角色头像栈
+- **WHEN** `clues_in_segment` / `clues_in_scene` do storyboard são arrays vazios
+- **THEN** a pilha de miniaturas de pistas não é renderizada; o lado direito do cabeçalho mostra só a pilha de avatares de personagens
 
-#### Scenario: 超过 4 个线索时显示溢出数量
+#### Scenario: Exibir quantidade de overflow quando há mais de 4 pistas
 
-- **WHEN** 分镜关联线索超过 4 个
-- **THEN** 只显示前 4 个缩略图，后续以 `+n` 灰色徽章表示剩余数量
+- **WHEN** o storyboard tem mais de 4 pistas associadas
+- **THEN** apenas as 4 primeiras miniaturas são exibidas; as restantes são representadas por um badge cinza `+n`
 
-### Requirement: 线索悬停浮窗
+### Requirement: Popover de hover da pista
 
-鼠标悬停在线索缩略图上时 SHALL 弹出浮窗，显示线索图片、名称、类型标签（场景/道具）及描述摘要，布局与角色浮窗一致。
+Ao passar o mouse sobre a miniatura da pista, SHALL aparecer um popover com a imagem da pista, nome, etiqueta de tipo (cena/prop) e resumo da descrição, com layout consistente com o popover de personagem.
 
-#### Scenario: 悬停展示线索详情
+#### Scenario: Hover exibe detalhes da pista
 
-- **WHEN** 用户将鼠标悬停在某个线索缩略图上
-- **THEN** 弹出浮窗，左侧显示线索图片（无图则图标占位），右侧显示线索名称和一行描述摘要
+- **WHEN** o usuário passa o mouse sobre a miniatura de uma pista
+- **THEN** aparece um popover com a imagem da pista à esquerda (ou ícone placeholder se não houver imagem) e, à direita, o nome da pista e um resumo de uma linha da descrição
 
-#### Scenario: 浮窗显示类型标签
+#### Scenario: Popover exibe etiqueta de tipo cena
 
-- **WHEN** 浮窗展示时，线索 `type` 为 `"location"`
-- **THEN** 名称旁显示"场景"标签（amber 色调）
+- **WHEN** no popover o `type` da pista é `"location"`
+- **THEN** ao lado do nome é exibida a etiqueta "Cena" (tom amber)
 
-#### Scenario: 浮窗显示道具标签
+#### Scenario: Popover exibe etiqueta de prop
 
-- **WHEN** 浮窗展示时，线索 `type` 为 `"prop"`
-- **THEN** 名称旁显示"道具"标签（emerald 色调）
+- **WHEN** no popover o `type` da pista é `"prop"`
+- **THEN** ao lado do nome é exibida a etiqueta "Prop" (tom emerald)
 
-### Requirement: 角色浮窗增加"角色"类型标签
+### Requirement: Popover de personagem ganha etiqueta de tipo "Personagem"
 
-AvatarPopover SHALL 在角色名称旁新增"角色"类型标签，与线索浮窗的标签风格统一，便于区分两种实体类型。
+AvatarPopover SHALL exibir a etiqueta de tipo "Personagem" ao lado do nome do personagem, no mesmo estilo das etiquetas do popover de pistas, para facilitar a distinção entre os dois tipos de entidade.
 
-#### Scenario: 悬停角色头像显示"角色"标签
+#### Scenario: Hover no avatar de personagem exibe etiqueta "Personagem"
 
-- **WHEN** 用户将鼠标悬停在角色头像上
-- **THEN** 浮窗中角色名称旁显示"角色"标签（indigo 色调）
+- **WHEN** o usuário passa o mouse sobre o avatar de um personagem
+- **THEN** no popover, ao lado do nome do personagem, é exibida a etiqueta "Personagem" (tom indigo)

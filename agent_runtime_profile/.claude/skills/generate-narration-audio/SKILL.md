@@ -1,47 +1,47 @@
 ---
 name: generate-narration-audio
-description: 为说书模式剧本逐段生成旁白配音（TTS）。当用户说"生成旁白"、"配音"、"生成全集旁白"、想重新生成某段配音、或批量配音中断需要补齐时使用。
+description: Gera narração (TTS) segmento a segmento para scripts no modo narration. Use quando o usuário disser "gerar narração", "dublagem", "gerar narração do episódio inteiro", quiser regenerar a dublagem de um trecho, ou precisar completar lote interrompido.
 ---
 
-# 生成旁白配音
+# Gerar áudio de narração
 
-为说书（narration）模式剧本的每个片段，以该段 `novel_text` 原文合成一段旁白音频，
-写回该段 `generated_assets.narration_audio`（输出 `audio/segment_{segment_id}.wav`）。
-只依赖剧本，不依赖分镜图/视频——剧本生成后即可推进。
+Para cada segmento do script no modo narration, sintetiza um áudio de narração a partir do `novel_text` original do segmento
+e grava de volta em `generated_assets.narration_audio` (saída `audio/segment_{segment_id}.wav`).
+Depende só do script, não de storyboard/vídeo — pode avançar assim que o script existir.
 
-## 工具调用
+## Chamadas de ferramentas
 
-**重要：生成旁白配音必须调用下列 MCP 工具入队。此 skill 不提供任何 Python/Shell 脚本，不得用 BASH 调 `python .../scripts/*.py`。**
+**Importante: a geração de narração deve enfileirar via as ferramentas MCP abaixo. Este skill não fornece scripts Python/Shell; não use BASH para chamar `python .../scripts/*.py`.**
 
-通过 MCP 工具入队：
+Enfileirar via ferramenta MCP:
 
-| 操作 | 工具 |
+| Operação | Ferramenta |
 |------|------|
-| 全集补齐（默认，所有缺音频的段） | `mcp__arcreel__generate_narration_audio({"script": "episode_1.json"})` |
-| 指定批量范围 | `mcp__arcreel__generate_narration_audio({"script": "episode_1.json", "segment_ids": ["E1S01", "E1S02"]})` |
-| 单段重生 | `mcp__arcreel__generate_narration_audio({"script": "episode_1.json", "segment_ids": ["E1S05"]})` |
+| Completar o episódio (padrão: todos os segmentos sem áudio) | `mcp__arcreel__generate_narration_audio({"script": "episode_1.json"})` |
+| Faixa em lote especificada | `mcp__arcreel__generate_narration_audio({"script": "episode_1.json", "segment_ids": ["E1S01", "E1S02"]})` |
+| Regenerar um segmento | `mcp__arcreel__generate_narration_audio({"script": "episode_1.json", "segment_ids": ["E1S05"]})` |
 
-> **选择规则**：不传 `segment_ids` 则只为缺 `narration_audio` 的段入队；显式传入的段即使已有音频也会重新合成（用于换音色/语速后重生）。
+> **Regra de seleção**: sem `segment_ids`, só enfileira segmentos sem `narration_audio`; segmentos passados explicitamente são resintetizados mesmo com áudio já existente (útil após trocar timbre/velocidade).
 >
-> **依赖**：generation worker 必须在线（audio 独立通道）；audio 供应商、模型与全局默认音色/语速由用户在 Web 设置页配置。
+> **Dependência**: o generation worker deve estar online (canal audio independente); provedor de audio, modelo e timbre/velocidade padrão globais o usuário configura na página de settings do Web.
 >
-> **项目级音色/语速覆盖**：用户要求"这个项目旁白用 X 音色 / 语速 1.2"时，调
+> **Override de timbre/velocidade no nível do projeto**: se o usuário pedir "neste projeto a narração usa timbre X / velocidade 1.2", chame
 > `mcp__arcreel__patch_project({"settings": {"narration_voice": "X", "narration_speed": 1.2}})`
-> 写项目级覆盖（优先于全局设置，只影响当前项目；传 `null` 清除回退全局）。改完后对已生成的段重新合成才会生效。
+> para gravar o override do projeto (prevalece sobre as settings globais e só afeta o projeto atual; passe `null` para limpar e voltar ao global). Só passa a valer nos segmentos resintetizados depois da mudança.
 
-## 工作流程
+## Fluxo de trabalho
 
-1. **状态检测** — 读取剧本，检查各段 `generated_assets.narration_audio`，统计缺失段并告知用户
-2. **入队生成** — 调用 MCP 工具，任务经生成队列由 worker 处理，工具等待全部完成后返回逐段结果
-3. **汇报** — 汇总成功/失败明细展示给用户
+1. **Detecção de estado** — ler o script, checar `generated_assets.narration_audio` de cada segmento, contar faltantes e informar o usuário
+2. **Enfileirar geração** — chamar a ferramenta MCP; as tarefas passam pela fila e o worker processa; a ferramenta espera tudo terminar e devolve resultado por segmento
+3. **Relatar** — resumir sucessos/falhas para o usuário
 
-## 断点续传
+## Retomada por checkpoint
 
-中断（服务重启、任务失败、会话断开）后重新调用**不传 `segment_ids` 的全集补齐**即可：
-已有音频的段自动跳过，只补缺失段，不重复扣费。
+Após interrupção (restart do serviço, falha de tarefa, desconexão da sessão), chame de novo a **completação do episódio inteiro sem `segment_ids`**:
+segmentos com áudio são pulados automaticamente; só completa os faltantes, sem cobrir de novo.
 
-## 错误处理
+## Tratamento de erros
 
-- 单段失败不影响批次，工具返回逐段结果
-- 失败段用 `segment_ids` 精确重试
-- 工具提示未配置 audio 供应商时，引导用户到 Web 设置页配置后重试
+- Falha de um segmento não afeta o lote; a ferramenta devolve resultado por segmento
+- Segmentos falhos: retente com precisão via `segment_ids`
+- Se a ferramenta indicar que o provedor de audio não está configurado, oriente o usuário a configurar na página de settings do Web e tentar de novo

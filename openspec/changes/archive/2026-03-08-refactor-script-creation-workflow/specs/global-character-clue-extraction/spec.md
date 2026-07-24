@@ -1,81 +1,81 @@
 ## ADDED Requirements
 
-### Requirement: 角色/线索提取须支持全书分析模式
+### Requirement: Extração de personagens/pistas deve suportar modo de análise do livro inteiro
 
-`analyze-characters-clues` subagent SHALL 支持分析整部小说并一次性提取所有角色和线索。
+O subagent `analyze-characters-clues` SHALL suportar analisar o romance completo e extrair de uma vez todos os personagens e pistas.
 
-#### Scenario: 分析整部小说
-- **WHEN** subagent 被 dispatch 且未指定分析范围
-- **THEN** subagent 读取 `projects/{project_name}/source/` 下的所有小说文本，提取全部角色和线索，写入 project.json
+#### Scenario: Analisar o romance inteiro
+- **WHEN** o subagent é despachado sem escopo de análise especificado
+- **THEN** o subagent lê todos os textos em `projects/{project_name}/source/`, extrai todos os personagens e pistas e grava em project.json
 
-#### Scenario: 分析指定章节范围
-- **WHEN** subagent 被 dispatch 且指定了分析范围（如"第1-3章"或"某个文件"）
-- **THEN** subagent 只分析指定范围的文本，提取该范围内的角色和线索
+#### Scenario: Analisar intervalo de capítulos especificado
+- **WHEN** o subagent é despachado com escopo especificado (ex.: "capítulos 1–3" ou "um arquivo")
+- **THEN** o subagent analisa apenas o texto nesse intervalo e extrai personagens e pistas dessa parte
 
-### Requirement: 角色/线索提取须支持增量追加模式
+### Requirement: Extração de personagens/pistas deve suportar modo de acréscimo incremental
 
-当 project.json 中已有角色/线索时，subagent SHALL 对比现有数据，只追加新发现的角色和线索，不覆盖已有定义。
+Quando project.json já tem personagens/pistas, o subagent SHALL comparar com os dados existentes e apenas acrescentar personagens e pistas novos descobertos, sem sobrescrever definições existentes.
 
-#### Scenario: 已有角色列表时追加新角色
-- **WHEN** project.json 中已有 5 个角色定义，subagent 分析后发现 3 个新角色
-- **THEN** subagent 只将 3 个新角色追加到 project.json，保留原有 5 个角色不变
+#### Scenario: Acrescentar novos personagens com lista já existente
+- **WHEN** project.json já tem 5 definições de personagem e o subagent descobre 3 novos
+- **THEN** o subagent apenas acrescenta os 3 novos em project.json, preservando os 5 originais
 
-#### Scenario: 已有角色的描述不被覆盖
-- **WHEN** project.json 中某角色已有手动修改过的 description 或 character_sheet
-- **THEN** subagent 不覆盖该角色的已有数据，仅在返回摘要中标注"已存在，跳过"
+#### Scenario: Descrições de personagens existentes não são sobrescritas
+- **WHEN** um personagem em project.json já tem description ou character_sheet editados manualmente
+- **THEN** o subagent não sobrescreve esses dados e apenas marca no resumo retornado "já existe, ignorado"
 
-### Requirement: 角色提取结果须符合图像生成规范
+### Requirement: Resultado da extração de personagens deve seguir normas de geração de imagem
 
-提取的角色描述 SHALL 仅包含可直接用于图像生成的视觉信息。
+As descrições extraídas de personagens SHALL conter apenas informações visuais utilizáveis diretamente na geração de imagem.
 
-#### Scenario: 角色描述仅含视觉要素
-- **WHEN** subagent 提取角色信息
-- **THEN** description 字段包含外貌要点、服装、标志物、色彩关键词、参考风格，不包含性格描述、角色关系、剧情背景等非视觉信息
+#### Scenario: Descrição do personagem só com elementos visuais
+- **WHEN** o subagent extrai informações do personagem
+- **THEN** o campo description inclui pontos de aparência, roupa, marcos distintivos, palavras-chave de cor e estilo de referência, sem personalidade, relações ou enredo
 
-#### Scenario: voice_style 单独记录
-- **WHEN** 小说中有角色声音/语气描述
-- **THEN** subagent 将声音信息记录在 voice_style 字段（用于后期配音参考），与视觉描述分离
+#### Scenario: voice_style registrado separadamente
+- **WHEN** o romance descreve voz/tom do personagem
+- **THEN** o subagent registra a informação de voz em voice_style (referência para dublagem posterior), separada da descrição visual
 
-### Requirement: 线索提取须区分类型和重要性
+### Requirement: Extração de pistas deve distinguir tipo e importância
 
-提取的线索 SHALL 标记类型（location/prop）和重要性（major/minor）。
+As pistas extraídas SHALL marcar tipo (location/prop) e importância (major/minor).
 
-#### Scenario: 场景类线索标记为 location
-- **WHEN** 线索为环境/场景（如"竹林深处"、"客栈大堂"）
-- **THEN** 线索 type 标记为 "location"，描述包含空间结构、光线氛围
+#### Scenario: Pistas de ambiente marcadas como location
+- **WHEN** a pista é um ambiente/cena (ex.: "fundo do bambuzal", "salão da estalagem")
+- **THEN** o type da pista é "location", com descrição de estrutura espacial e atmosfera de luz
 
-#### Scenario: 道具类线索标记为 prop
-- **WHEN** 线索为物品/道具（如"玉佩"、"信件"）
-- **THEN** 线索 type 标记为 "prop"，描述包含尺寸参考、材质、外观细节
+#### Scenario: Pistas de objeto marcadas como prop
+- **WHEN** a pista é um item/prop (ex.: "pingente de jade", "carta")
+- **THEN** o type da pista é "prop", com descrição de referência de tamanho, material e detalhes de aparência
 
-#### Scenario: 重要线索标记为 major
-- **WHEN** 线索在剧情中反复出现或具有关键作用
-- **THEN** 线索 importance 标记为 "major"（后续将生成设计图）
+#### Scenario: Pistas importantes marcadas como major
+- **WHEN** a pista reaparece no enredo ou tem papel-chave
+- **THEN** importance é "major" (depois gerará imagem de design)
 
-#### Scenario: 次要线索标记为 minor
-- **WHEN** 线索仅偶尔出现或为背景装饰
-- **THEN** 线索 importance 标记为 "minor"（仅保留描述，不生成设计图）
+#### Scenario: Pistas secundárias marcadas como minor
+- **WHEN** a pista aparece só ocasionalmente ou é decoração de fundo
+- **THEN** importance é "minor" (só mantém a descrição, sem gerar imagem de design)
 
-### Requirement: 提取结果须通过数据验证
+### Requirement: Resultados da extração devem passar validação de dados
 
-subagent 写入 project.json 后 SHALL 调用数据验证确保完整性。
+Após gravar em project.json, o subagent SHALL chamar validação de dados para garantir integridade.
 
-#### Scenario: 调用 validate_project 验证
-- **WHEN** subagent 完成角色/线索写入
-- **THEN** subagent 调用 `validate_project(project_name)` 验证 project.json 结构和引用完整性
+#### Scenario: Chamar validate_project
+- **WHEN** o subagent termina a gravação de personagens/pistas
+- **THEN** o subagent chama `validate_project(project_name)` para validar estrutura e integridade de referências de project.json
 
-#### Scenario: 验证失败时修复
-- **WHEN** validate_project 返回验证失败
-- **THEN** subagent 根据错误信息修复数据，重新验证直到通过
+#### Scenario: Corrigir em caso de falha na validação
+- **WHEN** validate_project retorna falha
+- **THEN** o subagent corrige os dados com base nos erros e revalida até passar
 
-### Requirement: subagent 须返回结构化摘要
+### Requirement: Subagent deve retornar resumo estruturado
 
-`analyze-characters-clues` subagent 返回给主 agent 的结果 SHALL 为精炼的结构化摘要，不包含原始小说文本。
+O resultado retornado por `analyze-characters-clues` ao agente principal SHALL ser um resumo estruturado enxuto, sem o texto original do romance.
 
-#### Scenario: 返回角色摘要
-- **WHEN** subagent 完成角色提取
-- **THEN** 返回内容包含：新增角色数量、角色名称列表、每个角色的一句话描述
+#### Scenario: Retornar resumo de personagens
+- **WHEN** o subagent conclui a extração de personagens
+- **THEN** o retorno inclui: quantidade de personagens novos, lista de nomes e descrição de uma frase por personagem
 
-#### Scenario: 返回线索摘要
-- **WHEN** subagent 完成线索提取
-- **THEN** 返回内容包含：新增线索数量、major/minor 分布、线索名称和类型列表
+#### Scenario: Retornar resumo de pistas
+- **WHEN** o subagent conclui a extração de pistas
+- **THEN** o retorno inclui: quantidade de pistas novas, distribuição major/minor, lista de nomes e tipos das pistas

@@ -1,91 +1,90 @@
 ---
 name: create-episode-script
-description: "单集 JSON 剧本生成 subagent。使用场景：(1) drafts/episode_N/ 中间文件已存在，需要生成最终 JSON 剧本，(2) 用户要求生成某集的 JSON 剧本，(3) manga-workflow 编排进入 JSON 剧本生成阶段。接收项目名和集数，调用 mcp__arcreel__generate_episode_script 工具生成 JSON，验证输出，返回生成结果摘要。"
+description: "Subagent de geração de script JSON de um episódio. Cenários: (1) arquivo intermediário em drafts/episode_N/ já existe e é preciso gerar o script JSON final, (2) o usuário pede o script JSON de um episódio, (3) a orquestração manga-workflow entra na etapa de geração de script JSON. Recebe nome do projeto e número do episódio, chama mcp__arcreel__generate_episode_script, valida a saída e retorna resumo do resultado."
 skills:
   - generate-script
 ---
 
-你的任务是调用 `mcp__arcreel__generate_episode_script` 工具生成最终的 JSON 格式剧本。
+Sua tarefa é chamar a ferramenta `mcp__arcreel__generate_episode_script` para gerar o script final em formato JSON.
 
-## 任务定义
+## Definição da tarefa
 
-**输入**：主 agent 会在 prompt 中提供：
-- 项目名称（如 `my_project`）
-- 集数（如 `1`）
+**Entrada**: o agent principal fornece no prompt:
+- Nome do projeto (ex.: `my_project`)
+- Número do episódio (ex.: `1`)
 
-**输出**：生成 `scripts/episode_{N}.json` 后，返回生成结果摘要
+**Saída**: após gerar `scripts/episode_{N}.json`, retornar resumo do resultado
 
-## 核心原则
+## Princípios centrais
 
-1. **直接调用工具**：按照 generate-script skill 的指引调用 `mcp__arcreel__generate_episode_script`
-2. **验证输出**：确认 JSON 文件生成且格式正确
-3. **完成即返回**：独立完成全部工作后返回，不等待用户确认
+1. **Chamar a ferramenta diretamente**: seguir as instruções do skill generate-script e chamar `mcp__arcreel__generate_episode_script`
+2. **Validar a saída**: confirmar que o JSON foi gerado e está bem formado
+3. **Concluir e retornar**: complete todo o trabalho de forma independente e retorne; não espere confirmação do usuário
 
-## 工作流程
+## Fluxo de trabalho
 
-### Step 1: 确认前置条件
+### Step 1: Confirmar pré-condições
 
-使用 Read 工具读取 `project.json`（相对 session cwd），确认：
-- content_mode 字段（narration 或 drama）
-- generation_mode 字段（项目顶层，注意目标集的 `episodes[i].generation_mode` 可覆盖；`effective_mode = episode.generation_mode or project.generation_mode or "storyboard"`，其中 `episode` 指 `project.json` 的 `episodes[]` 数组中 `episode == N` 的那一项）
-- characters、scenes、props 已有数据
+Use Read em `project.json` (relativo ao cwd da sessão) e confirme:
+- Campo content_mode (narration ou drama)
+- Campo generation_mode (topo do projeto; note que `episodes[i].generation_mode` do episódio-alvo pode sobrescrever; `effective_mode = episode.generation_mode or project.generation_mode or "storyboard"`, onde `episode` é o item de `episodes[]` com `episode == N`)
+- characters, scenes e props já têm dados
 
-使用 Glob 工具确认中间文件存在，按 `effective_mode` × `content_mode` 三分支检查：
-- effective_mode == reference_video（任一 content_mode）：`drafts/episode_{N}/step1_reference_units.md`（缺失时需先运行 `split-reference-video-units`）
-- effective_mode ∈ {storyboard, grid} 且 content_mode == narration：`drafts/episode_{N}/step1_segments.json`（缺失时需先运行 `split-narration-segments`）
-- effective_mode ∈ {storyboard, grid} 且 content_mode == drama：`drafts/episode_{N}/step1_normalized_script.json`（结构化内容；缺失时需先运行 `normalize-drama-script`。旧项目残留的 `step1_normalized_script.md` 是结构化前的自由文本稿，不算有效 step1，须重跑 normalize 产出 `.json`）
+Use Glob para confirmar que o arquivo intermediário existe, segundo os três ramos `effective_mode` × `content_mode`:
+- effective_mode == reference_video (qualquer content_mode): `drafts/episode_{N}/step1_reference_units.md` (se faltar, rode primeiro `split-reference-video-units`)
+- effective_mode ∈ {storyboard, grid} e content_mode == narration: `drafts/episode_{N}/step1_segments.json` (se faltar, rode primeiro `split-narration-segments`)
+- effective_mode ∈ {storyboard, grid} e content_mode == drama: `drafts/episode_{N}/step1_normalized_script.json` (conteúdo estruturado; se faltar, rode primeiro `normalize-drama-script`. `step1_normalized_script.md` residual de projetos antigos é rascunho livre pré-estruturação e **não** conta como step1 válido — rode normalize de novo para produzir `.json`)
 
-只认当前组合对应的那一个文件；目录中其他模式的 `step1_*` 文件属历史残留，不能当作代替输入。如果对应中间文件不存在，报告错误并指明需要先运行的预处理 subagent。
+Só reconheça o arquivo correspondente à combinação atual; outros `step1_*` no diretório são resíduo histórico e não substituem a entrada. Se o intermediário correspondente não existir, reporte o erro e indique o subagent de pré-processamento necessário.
 
-> drama 走两段式（见 ADR 0041）：step1 已定稿内容（场景边界 / 出场资产 / 逐字口播 utterances / 原文锚 source_text / 视觉改编描述），`generate_episode_script` 只生成视觉层（image_prompt / video_prompt）并按 scene_id 透传 step1 内容、不重新识别口播。
+> drama usa pipeline em duas etapas (ver ADR 0041): o step1 já fixa o conteúdo (limites de cena / ativos em cena / utterances de locução palavra por palavra / âncora source_text / descrição visual adaptada); `generate_episode_script` só gera a camada visual (image_prompt / video_prompt) e repassa o conteúdo do step1 por scene_id, sem reidentificar locução.
 
-### Step 2: 调用工具生成 JSON 剧本
+### Step 2: Chamar a ferramenta para gerar o script JSON
 
 ```text
 mcp__arcreel__generate_episode_script({"episode": {N}})
 ```
 
-等待返回。返回 `is_error: true` 时查看错误信息并尝试修复或报告问题。
+Aguarde o retorno. Se `is_error: true`, leia a mensagem de erro e tente corrigir ou reporte o problema.
 
-若错误为 **web 审核 gate 阻塞**（drama / narration 的 step1 结构化中间态尚未经显式确认，或确认后内容又被改），这不是数据错误：不要反复重试、不要改写中间文件。确认须由用户驱动——回报主 agent，由其在用户于 Web 端审阅确认、或在对话中明确同意后调用 `mcp__arcreel__confirm_script_review({"episode": N})`，确认后再重试本步骤。
+Se o erro for **bloqueio do gate de revisão web** (estado intermediário estruturado step1 de drama / narration ainda sem confirmação explícita, ou conteúdo alterado após confirmação), isso **não** é erro de dados: não fique retentando e não reescreva o intermediário. A confirmação é dirigida pelo usuário — reporte ao agent principal, que chama `mcp__arcreel__confirm_script_review({"episode": N})` depois que o usuário confirmar no Web ou concordar na conversa; só então retente este passo.
 
-### Step 3: 验证生成结果
+### Step 3: Validar o resultado
 
-使用 Read 工具读取生成的 `scripts/episode_{N}.json`，
-确认：
-- 文件存在且为有效 JSON
-- 包含 episode、content_mode 字段
-- reference_video 模式：video_units 数组不为空
-- storyboard / grid + narration：segments 数组不为空
-- storyboard / grid + drama：scenes 数组不为空
+Use Read no `scripts/episode_{N}.json` gerado e confirme:
+- Arquivo existe e é JSON válido
+- Contém campos episode e content_mode
+- modo reference_video: array video_units não vazio
+- storyboard / grid + narration: array segments não vazio
+- storyboard / grid + drama: array scenes não vazio
 
-### Step 4: 返回摘要
+### Step 4: Retornar resumo
 
 ```
-## JSON 剧本生成完成
+## Geração de script JSON concluída
 
-**项目**: {项目名}  **第 N 集**
+**Projeto**: {nome_do_projeto}  **Episódio N**
 
-| 统计项 | 数值 |
+| Item | Valor |
 |--------|------|
-| 内容模式 | narration/drama |
-| 总片段/场景数 | XX 个 |
-| 总时长 | X 分 X 秒 |
-| 生成模型 | {脚本输出中实际使用的模型名} |
+| Modo de conteúdo | narration/drama |
+| Total de segmentos/cenas | XX |
+| Duração total | X min X s |
+| Modelo gerador | {nome do modelo realmente usado na saída do script} |
 
-**文件已保存**: `scripts/episode_{N}.json`
+**Arquivo salvo**: `scripts/episode_{N}.json`
 
-✅ 数据验证通过
+✅ Validação de dados ok
 
-下一步：主 agent 可继续 dispatch 资产生成 subagent（角色设计图、分镜图等）。
+Próximo passo: o agent principal pode seguir com dispatch do subagent de geração de ativos (artes de personagem, storyboards etc.).
 ```
 
-如果生成失败：
+Se a geração falhar:
 ```
-## JSON 剧本生成失败
+## Geração de script JSON falhou
 
-**错误**: {错误描述}
+**Erro**: {descrição do erro}
 
-**建议**:
-- {根据错误类型给出的修复建议}
+**Sugestões**:
+- {sugestões de correção conforme o tipo de erro}
 ```

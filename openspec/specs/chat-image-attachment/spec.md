@@ -1,58 +1,58 @@
 ## ADDED Requirements
 
-### Requirement: 图片附件输入
-系统 SHALL 允许用户在对话框输入区通过粘贴、点击上传、拖拽三种方式附加图片。
+### Requirement: Entrada de anexos de imagem
+O sistema SHALL permitir que o usuário anexe imagens na área de entrada do chat por colar, clique para upload ou arrastar e soltar.
 
-#### Scenario: 粘贴图片
-- **WHEN** 用户在对话框输入区按 Ctrl+V（或 Cmd+V），剪贴板中包含图片
-- **THEN** 系统将图片添加到附件列表，并在输入框上方显示缩略图
+#### Scenario: Colar imagem
+- **WHEN** o usuário pressiona Ctrl+V (ou Cmd+V) na área de entrada e a área de transferência contém uma imagem
+- **THEN** o sistema adiciona a imagem à lista de anexos e exibe a miniatura acima do campo de entrada
 
-#### Scenario: 点击上传
-- **WHEN** 用户点击输入框旁的附件按钮，从文件选择器选取一张或多张图片
-- **THEN** 系统将所选图片添加到附件列表，并显示缩略图
+#### Scenario: Upload por clique
+- **WHEN** o usuário clica no botão de anexo ao lado do campo de entrada e seleciona uma ou mais imagens no seletor de arquivos
+- **THEN** o sistema adiciona as imagens selecionadas à lista de anexos e exibe as miniaturas
 
-#### Scenario: 拖拽图片
-- **WHEN** 用户将图片文件拖拽至对话框输入区并释放
-- **THEN** 系统将图片添加到附件列表，并显示缩略图；拖入过程中输入区 SHALL 高亮显示放置反馈
+#### Scenario: Arrastar e soltar imagens
+- **WHEN** o usuário arrasta arquivos de imagem para a área de entrada e solta
+- **THEN** o sistema adiciona as imagens à lista de anexos e exibe as miniaturas; durante o arraste, a área de entrada SHALL destacar o feedback de drop
 
-#### Scenario: 超出数量上限
-- **WHEN** 当前附件数量已达 5 张，用户尝试再次添加图片
-- **THEN** 系统忽略新图片，附件按钮 SHALL 变为禁用状态
+#### Scenario: Exceder o limite de quantidade
+- **WHEN** o número atual de anexos já é 5 e o usuário tenta adicionar mais imagens
+- **THEN** o sistema ignora as novas imagens e o botão de anexo SHALL ficar desabilitado
 
-#### Scenario: 超出文件大小上限
-- **WHEN** 用户添加单张大于 5MB 的图片
-- **THEN** 系统拒绝添加并向用户显示错误提示
+#### Scenario: Exceder o limite de tamanho de arquivo
+- **WHEN** o usuário adiciona uma imagem maior que 5MB
+- **THEN** o sistema recusa a adição e exibe uma mensagem de erro ao usuário
 
-#### Scenario: 移除附件
-- **WHEN** 用户点击某张缩略图右上角的删除按钮
-- **THEN** 系统从附件列表移除该图片，缩略图消失
+#### Scenario: Remover anexo
+- **WHEN** o usuário clica no botão de exclusão no canto superior direito de uma miniatura
+- **THEN** o sistema remove a imagem da lista de anexos e a miniatura desaparece
 
-### Requirement: 携带图片发送消息
-系统 SHALL 在用户发送消息时将附件图片与文字内容一并提交给 Agent。
+### Requirement: Enviar mensagem com imagens
+O sistema SHALL, ao enviar a mensagem, submeter as imagens anexadas junto com o conteúdo de texto ao Agent.
 
-#### Scenario: 发送含图片的消息
-- **WHEN** 用户在附件列表非空时点击发送（或按 Enter）
-- **THEN** 系统将文字与图片 base64 数据组合成 multimodal 消息发送，发送后附件列表 SHALL 清空
+#### Scenario: Enviar mensagem com imagens
+- **WHEN** o usuário clica em enviar (ou pressiona Enter) com a lista de anexos não vazia
+- **THEN** o sistema combina texto e dados base64 das imagens em uma mensagem multimodal e envia; após o envio, a lista de anexos SHALL ser limpa
 
-#### Scenario: 仅发送文字
-- **WHEN** 用户在附件列表为空时发送消息
-- **THEN** 系统行为与原有纯文本发送保持一致
+#### Scenario: Enviar apenas texto
+- **WHEN** o usuário envia uma mensagem com a lista de anexos vazia
+- **THEN** o comportamento do sistema permanece igual ao envio de texto puro original
 
-### Requirement: 图片消息渲染
-系统 SHALL 在对话历史中正确渲染用户发送的图片，并支持点击放大查看。
+### Requirement: Renderização de mensagens com imagem
+O sistema SHALL renderizar corretamente as imagens enviadas pelo usuário no histórico da conversa e suportar clique para ampliar.
 
-#### Scenario: 发送后即时显示
-- **WHEN** 含图片的消息发送成功
-- **THEN** 用户气泡中 SHALL 显示图片缩略图（最大高度 256px），文字内容显示在图片下方
+#### Scenario: Exibição imediata após o envio
+- **WHEN** uma mensagem com imagens é enviada com sucesso
+- **THEN** o balão do usuário SHALL exibir miniaturas das imagens (altura máxima 256px), com o texto abaixo das imagens
 
-#### Scenario: 历史回放显示
-- **WHEN** 用户重新加载已有会话
-- **THEN** 含图片的历史消息 SHALL 正确渲染图片内容
+#### Scenario: Exibição no replay do histórico
+- **WHEN** o usuário recarrega uma sessão existente
+- **THEN** as mensagens históricas com imagens SHALL renderizar corretamente o conteúdo das imagens
 
-#### Scenario: 点击缩略图放大
-- **WHEN** 用户点击对话中的图片缩略图
-- **THEN** 系统以 lightbox 形式全屏显示原图，点击遮罩或按 Esc 关闭
+#### Scenario: Clicar na miniatura para ampliar
+- **WHEN** o usuário clica na miniatura de uma imagem na conversa
+- **THEN** o sistema exibe a imagem original em tela cheia no formato lightbox; clique na máscara ou Esc fecha
 
-#### Scenario: 点击待发送图片放大
-- **WHEN** 用户点击输入区附件缩略图
-- **THEN** 系统以 lightbox 形式全屏显示该图片，点击遮罩或按 Esc 关闭
+#### Scenario: Clicar na imagem pendente de envio para ampliar
+- **WHEN** o usuário clica na miniatura de um anexo na área de entrada
+- **THEN** o sistema exibe essa imagem em tela cheia no formato lightbox; clique na máscara ou Esc fecha

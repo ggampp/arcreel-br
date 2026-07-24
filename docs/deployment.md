@@ -1,24 +1,24 @@
-# 部署补充说明
+# Notas complementares de deploy
 
-本文档补充 [`getting-started.md`](getting-started.md) 未覆盖的部署细节，主要面向已经能够通过 Docker / 本地启动 ArcReel 的运维与开发者。
+Este documento complementa detalhes de deploy não cobertos em [`getting-started.md`](getting-started.md), voltado principalmente a ops e desenvolvedores que já sobem o ArcReel com Docker / localmente.
 
-## Agent 沙箱依赖
+## Dependências do sandbox do Agent
 
-ArcReel 启动会进行严格的安全检查 — sandbox 工具缺失即拒绝启动。
+Na subida, o ArcReel faz checagem estrita de segurança — se a ferramenta de sandbox estiver ausente, a subida é recusada.
 
-| 环境 | 工具 | 安装 |
+| Ambiente | Ferramenta | Instalação |
 |---|---|---|
-| macOS | `sandbox-exec` | 系统自带，无需额外安装 |
-| Linux 本地开发 | `bwrap` + `socat` | `sudo apt install bubblewrap socat` (Ubuntu/Debian) / `sudo dnf install bubblewrap socat` (Fedora) / `sudo pacman -S bubblewrap socat` (Arch) |
-| Docker | `bwrap` + `socat` | Dockerfile 已包含 |
+| macOS | `sandbox-exec` | Já vem no sistema; nada a instalar |
+| Desenvolvimento local Linux | `bwrap` + `socat` | `sudo apt install bubblewrap socat` (Ubuntu/Debian) / `sudo dnf install bubblewrap socat` (Fedora) / `sudo pacman -S bubblewrap socat` (Arch) |
+| Docker | `bwrap` + `socat` | Já inclusos no Dockerfile |
 
-启动失败时 server 会输出明确错误信息，按提示安装即可。
+Se a subida falhar, o server imprime mensagem de erro clara; instale conforme o aviso.
 
-**.env 迁移说明**：sandbox 设计要求父进程 `os.environ` 不含任何 provider 密钥。
-请把 `.env` 中的下列 key 移到 WebUI 系统配置页：
+**Nota de migração de `.env`**: o design do sandbox exige que o `os.environ` do processo pai **não** contenha nenhuma chave de provider.
+Mova as keys abaixo do `.env` para a página de configuração do sistema na WebUI:
 
-- `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` 等 ANTHROPIC_*
+- `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` e demais ANTHROPIC_*
 - `ARK_API_KEY` / `XAI_API_KEY` / `GEMINI_API_KEY` / `VIDU_API_KEY` / `DASHSCOPE_API_KEY` / `MINIMAX_API_KEY` / `OPENAI_API_KEY`
-- `GOOGLE_APPLICATION_CREDENTIALS`（vertex 凭据继续放 `vertex_keys/` 目录）
+- `GOOGLE_APPLICATION_CREDENTIALS` (credenciais Vertex continuam em `vertex_keys/`)
 
-启动检测发现这些 key 仍存在于 env 时，server 会拒绝启动并提示需要清理。
+Se a checagem de subida achar essas keys ainda no env, o server recusa subir e pede a limpeza.

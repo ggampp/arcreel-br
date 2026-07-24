@@ -1,82 +1,82 @@
-# 贡献指南
+# Guia de contribuição
 
-欢迎贡献代码、报告 Bug 或提出功能建议！
+Contribuições de código, reportes de bugs e sugestões de features são bem-vindas!
 
-## 本地开发环境
+## Ambiente de desenvolvimento local
 
 ```bash
-# 前置要求：Python 3.12+, Node.js 20+, uv, pnpm, ffmpeg
-# 操作系统：Linux / MacOS / Windows WSL2（Windows 原生不支持）
+# Pré-requisitos: Python 3.12+, Node.js 20+, uv, pnpm, ffmpeg
+# SO: Linux / macOS / Windows WSL2 (Windows nativo não é suportado para este fluxo)
 
-# 安装依赖
+# Instalar dependências
 uv sync
 cd frontend && pnpm install && cd ..
 
-# 一次性安装 pre-commit 钩子（ruff / eslint / pull_request_target tripwire）
+# Instalar hooks pre-commit uma vez (ruff / eslint / pull_request_target tripwire)
 uv run pre-commit install
 
-# 初始化数据库
+# Inicializar o banco
 uv run alembic upgrade head
 
-# 启动后端 (终端 1)
-# 注意：必须用 --reload-dir 限定监视目录，否则 watchfiles 会扫描
-# node_modules / .venv / .git / .worktrees 等十几万个文件，单核 CPU 50%+
+# Subir o backend (terminal 1)
+# Atenção: use --reload-dir para limitar a vigilância; senão o watchfiles varre
+# node_modules / .venv / .git / .worktrees e centenas de milhares de arquivos (CPU ~50%+ em um núcleo)
 uv run uvicorn server.app:app --reload --reload-dir server --reload-dir lib --port 1241
 
-# 启动前端 (终端 2)
+# Subir o frontend (terminal 2)
 cd frontend && pnpm dev
 
-# 访问 http://localhost:5173
+# Acesse http://localhost:5173
 ```
 
-## 运行测试
+## Rodar testes
 
 ```bash
-# 后端测试
+# Testes de backend
 python -m pytest
 
-# 前端类型检查 + 测试
+# Typecheck + testes de frontend
 cd frontend && pnpm check
 ```
 
-## 代码质量
+## Qualidade de código
 
-**Lint & Format（ruff）：**
+**Lint e format (ruff):**
 
 ```bash
 uv run ruff check . && uv run ruff format .
 ```
 
-- 规则集：`E`/`F`/`I`/`UP`，忽略 `E402` 和 `E501`
-- line-length：120
-- CI 中强制检查：`ruff check . && ruff format --check .`
+- Conjunto de regras: `E`/`F`/`I`/`UP`, ignora `E402` e `E501`
+- line-length: 120
+- CI força: `ruff check . && ruff format --check .`
 
-**Lint（前端 ESLint）：**
+**Lint (ESLint do frontend):**
 
 ```bash
-cd frontend && pnpm lint          # 检查
-cd frontend && pnpm lint:fix      # 自动修可修的部分
+cd frontend && pnpm lint          # checar
+cd frontend && pnpm lint:fix      # auto-corrigir o que for possível
 ```
 
-- 配置：`frontend/eslint.config.js`（flat config）
-- 规则集：`typescript-eslint/recommendedTypeChecked` + `react/recommended` + `react-hooks/recommended` + `jsx-a11y/recommended`
-- typed linting 启用 `projectService: true`，能检查 `no-floating-promises`、`no-misused-promises` 等 async 相关问题
-- CI 中强制检查：`frontend-tests` job 的 `Lint` step
+- Config: `frontend/eslint.config.js` (flat config)
+- Regras: `typescript-eslint/recommendedTypeChecked` + `react/recommended` + `react-hooks/recommended` + `jsx-a11y/recommended`
+- Typed linting com `projectService: true`, cobre `no-floating-promises`, `no-misused-promises` etc.
+- CI força no job `frontend-tests`, step `Lint`
 
-### ESLint disable 使用规范
+### Normas de uso de eslint-disable
 
-本项目在 PR 3（#219）后采用零 warning 政策，所有规则均为 error。如必须绕过，遵循：
+Após o PR 3 (#219) o projeto adota política de zero warning; todas as regras são error. Se for preciso desabilitar:
 
-- **形式**：`// eslint-disable-next-line <rule> -- <中文理由>`，`--` 后的理由**强制**
-- **禁用**：文件级 `/* eslint-disable */`、无理由的 `// eslint-disable-line`、`@ts-ignore` 联用
-- **PR 描述要求**：新增的 disable 必须在 PR body 以表格列出 `rule | file:line | 理由`
-- **文件级关闭**只允许通过 `eslint.config.js` 的 `files` override，且须在 config 注释说明原因
-- **不可接受的理由**：「太麻烦」「暂时这样」「later fix」
-- **可接受的理由示例**：「React setter 引用稳定」「mount-only 初始化」「生成式预览视频无字幕源」
+- **Formato**: `// eslint-disable-next-line <rule> -- <motivo em português ou inglês claro>`; o motivo após `--` é **obrigatório**
+- **Proibido**: `/* eslint-disable */` em nível de arquivo, `// eslint-disable-line` sem motivo, combinação com `@ts-ignore`
+- **PR**: novos disables devem aparecer no body do PR em tabela `rule | file:line | motivo`
+- **Fechamento em nível de arquivo** só via override `files` em `eslint.config.js`, com comentário explicando o porquê
+- **Motivos inaceitáveis**: «muito trabalhoso», «por enquanto», «later fix»
+- **Motivos aceitáveis (exemplos)**: «referência de setter React é estável», «init só no mount», «vídeo de pré-visualização gerativo sem fonte de legenda»
 
-**本地 IDE 建议（不提交 repo）：**
+**Sugestão de IDE local (não versionar no repo):**
 
-`.vscode/` 已在 `.gitignore`。自行添加 `frontend/.vscode/settings.json` 可让 VS Code / Cursor 实时显示 lint 黄线并在保存时自动修复：
+`.vscode/` já está no `.gitignore`. Adicione `frontend/.vscode/settings.json` para o VS Code / Cursor mostrar lint em tempo real e auto-fix on save:
 
 ```json
 {
@@ -85,125 +85,125 @@ cd frontend && pnpm lint:fix      # 自动修可修的部分
 }
 ```
 
-**已知约束：**
+**Restrições conhecidas:**
 
-- TypeScript 版本锁：`typescript-eslint@8.x` 的 peer 范围为 `typescript <6.1`；升 TS 到 6.1+ 前需同步升级 `typescript-eslint`
+- Lock de versão TypeScript: peer de `typescript-eslint@8.x` é `typescript <6.1`; ao subir TS para 6.1+ é preciso sincronizar `typescript-eslint`
 
-**测试覆盖率：**
+**Cobertura de testes:**
 
-- CI 要求 ≥80%
-- `asyncio_mode = "auto"`（无需手动标记 async 测试）
+- CI exige ≥80%
+- `asyncio_mode = "auto"` (sem marcar async tests manualmente)
 
-### Pytest markers 纪律
+### Disciplina de markers do pytest
 
-新增测试必须按类型打标，默认 CI 跑 `-m "not e2e"`：
+Novos testes devem ser marcados por tipo; o CI padrão roda `-m "not e2e"`:
 
-| Marker | 含义 | 禁止 |
+| Marker | Significado | Proibido |
 |--------|------|------|
-| `unit` | 快速、隔离，不碰真实 I/O / 外部服务 | — |
-| `integration` | 跨模块协作，使用真实依赖（in-memory DB、tmp 文件系统等） | **禁止 mock 被测 module 的公共入口**（例如测 `MediaGenerator` 的集成测试不能 mock `MediaGenerator.generate`，否则是在测 mock 本身） |
-| `e2e` | 端到端，依赖真实外部资源（远程 API、大模型调用、真实 ffmpeg 重活） | CI 默认跳过，本地按需运行 |
+| `unit` | Rápido, isolado, sem I/O real / serviços externos | — |
+| `integration` | Colaboração entre módulos, deps reais (DB in-memory, filesystem tmp etc.) | **Proibido mockar a entrada pública do módulo sob teste** (ex.: integração de `MediaGenerator` não pode mockar `MediaGenerator.generate`, senão testa o mock) |
+| `e2e` | Ponta a ponta, depende de recursos externos reais (API remota, LLM, ffmpeg pesado) | CI pula por padrão; rode local sob demanda |
 
-现存测试不强制回溯打标；只对新增测试落实。
+Testes existentes não precisam de remarcação retroativa; a regra vale só para novos.
 
-## 工作流程
+## Fluxo de trabalho
 
-### 分支策略（trunk-based）
+### Estratégia de branches (trunk-based)
 
-- 只有 `main` 是长期分支。所有工作从最新 `main` 切短分支完成，PR 合回 `main`
-- 禁止 `git push origin main` 直推。即使个人分支也走 PR 流程，自己先过一遍 diff + 验收清单
+- Só `main` é branch de longo prazo. Todo trabalho sai do `main` atual em branches curtas e volta via PR
+- Proibido `git push origin main` direto. Mesmo branches pessoais passam por PR; revise o diff e o checklist de aceitação antes
 
-### 分支命名约定
+### Convenção de nomes de branch
 
-`<type>/<slug>`，`type` 取 conventional commit 类型之一：
+`<type>/<slug>`, com `type` de conventional commit:
 
-- `feat/` — 新功能（如 `feat/reference-video-backend`）
-- `fix/` — Bug 修复（如 `fix/queue-lease-timeout`）
-- `refactor/` — 重构（如 `refactor/session-actor`）
-- `docs/` — 纯文档（如 `docs/contribution-infra`）
-- `chore/` — 构建/工具 / 版本号 / 清理（如 `chore/freeze-versions`）
-- `ci/` — CI 配置（如 `ci/testing-discipline`）
-- `test/` — 仅测试
+- `feat/` — nova feature (ex.: `feat/reference-video-backend`)
+- `fix/` — correção de bug (ex.: `fix/queue-lease-timeout`)
+- `refactor/` — refatoração (ex.: `refactor/session-actor`)
+- `docs/` — só documentação (ex.: `docs/contribution-infra`)
+- `chore/` — build / tooling / versão / limpeza (ex.: `chore/freeze-versions`)
+- `ci/` — config de CI (ex.: `ci/testing-discipline`)
+- `test/` — só testes
 
-`slug` 用小写 + 短横线，简短描述该分支聚焦点。
+`slug` em minúsculas + hífen, descrevendo o foco da branch.
 
-### 短分支寿命
+### Vida curta da branch
 
-从创建到合并 ≤ 3 天。超期要么拆分，要么先 rebase 主线同步——**不要**把 1 个月的分支直接拖进 review。
+Da criação ao merge ≤ 3 dias. Se passar, quebre o trabalho ou rebase na main — **não** arraste uma branch de 1 mês para review.
 
 ### Squash merge
 
-每个 PR 压成 1 个 commit 合回 `main`，commit message 用 conventional commits 规范（见下节）。GitHub 上 merge 按钮选 "Squash and merge"。
+Cada PR vira 1 commit em `main`, com mensagem em conventional commits (ver abaixo). No GitHub use "Squash and merge".
 
-### 已知 defer 的处理
+### Defer conhecidos
 
-PR 模板有"已知 defer"一节。合入前必须把每一条**开成 follow-up issue** 并把链接填进 PR description；不允许以"之后再说"的形式遗留。
+O template de PR tem a seção "known defer". Antes do merge, abra **follow-up issue** para cada item e coloque o link na descrição do PR; não deixe como «depois a gente vê».
 
-## 提交规范
+## Convenção de commits
 
-Commit message 采用 [Conventional Commits](https://www.conventionalcommits.org/) 格式：
+Mensagens no formato [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
-feat: 新增功能描述
-fix: 修复问题描述
-refactor: 重构描述
-docs: 文档变更
-chore: 构建/工具变更
+feat: descrição da nova funcionalidade
+fix: descrição da correção
+refactor: descrição da refatoração
+docs: alteração de documentação
+chore: alteração de build/tooling
 ```
 
-## 发版流程
+## Fluxo de release
 
-版本号与 changelog 由 [release-please](https://github.com/googleapis/release-please) 自动维护（配置见 `.release-please-config.json`，workflow 见 `.github/workflows/release-please.yml`）。**开发者无需手动 bump 版本号**——只需写合规的 conventional commits。
+Versão e changelog são mantidos automaticamente pelo [release-please](https://github.com/googleapis/release-please) (config em `.release-please-config.json`, workflow em `.github/workflows/release-please.yml`). **Desenvolvedores não fazem bump manual de versão** — basta commits conventional válidos.
 
-### 工作流程
+### Fluxo
 
-1. PR 按 conventional commits 规范 squash merge 到 `main`
-2. release-please 扫描自上次 release 以来的 commit，自动开/更新一个标题形如 `chore(main): release X.Y.Z` 的 Release PR，里面包含下次版本号 bump + 更新的 `CHANGELOG.md`
-3. 合并该 Release PR 即自动打 `vX.Y.Z` tag 并发布 GitHub Release
+1. PR squash-merged em `main` com conventional commits
+2. release-please varre commits desde o último release e abre/atualiza um Release PR com título no estilo `chore(main): release X.Y.Z`, contendo o bump e o `CHANGELOG.md` atualizado
+3. Merging o Release PR cria a tag `vX.Y.Z` e publica o GitHub Release
 
-### commit type → 版本步进
+### commit type → passo de versão
 
-| commit type | 版本步进 | changelog |
+| commit type | passo de versão | changelog |
 |-------------|---------|-----------|
-| `feat`      | minor   | ✨ 新功能 |
-| `fix`       | patch   | 🐛 Bug 修复 |
-| `feat!` / 任意 type + `!` / footer 含 `BREAKING CHANGE:` | **major** | ⚠️ BREAKING CHANGES（changelog 置顶） |
-| `perf` / `refactor` / `docs` / `revert` | 不步进 | 显示（⚡ / ♻️ / 📚 / ↩️） |
-| `chore` / `ci` / `build` / `test` / `style` | 不步进 | 隐藏 |
+| `feat`      | minor   | ✨ Features |
+| `fix`       | patch   | 🐛 Bug Fixes |
+| `feat!` / qualquer type + `!` / footer com `BREAKING CHANGE:` | **major** | ⚠️ BREAKING CHANGES (topo do changelog) |
+| `perf` / `refactor` / `docs` / `revert` | sem passo | exibidos (⚡ / ♻️ / 📚 / ↩️) |
+| `chore` / `ci` / `build` / `test` / `style` | sem passo | ocultos |
 
-> release-please 默认只有 `feat` 和 `fix`（以及破坏性变更）触发版本 bump。把 `perf`/`refactor`/`docs`/`revert` 配成 `hidden: false` 只影响 changelog 呈现，不会使它们触发 patch bump。如果一轮迭代只有这几类 commit，不会产出 Release PR，直到下一个 `fix`/`feat` commit 到来。
+> Por padrão o release-please só faz bump com `feat` e `fix` (e breaking changes). Marcar `perf`/`refactor`/`docs`/`revert` como `hidden: false` só afeta a apresentação do changelog, não dispara patch. Se um ciclo só tiver esses tipos, não haverá Release PR até o próximo `fix`/`feat`.
 
-`pyproject.toml` 和 `frontend/package.json` 的 `version` 字段由 release-please 自动维护（见 `pyproject.toml` 的 `# managed by release-please` 注释），**开发者视为只读**。`uv.lock` 同样由 release-please workflow 在 Release PR 分支上自动 `uv lock` 同步。实际版本状态以 git tag + `.release-please-manifest.json` 为准。
+Os campos `version` de `pyproject.toml` e `frontend/package.json` são geridos pelo release-please (ver comentário `# managed by release-please` em `pyproject.toml`) e devem ser tratados como **somente leitura** pelos desenvolvedores. O `uv.lock` também é sincronizado com `uv lock` no branch do Release PR. A fonte de verdade da versão é git tag + `.release-please-manifest.json`.
 
-### commit 示例
-
-```
-# 新功能（minor bump）
-feat(image-backends): 支持 OpenAI DALL-E 3 后端
-
-# Bug 修复（patch bump）
-fix(queue): 修复任务 lease 超时后未正确归还的问题
-
-# 带 scope 与正文
-feat(grid): 支持 grid_12 布局
-
-将宫格系统扩展到 12 宫格，适用于长篇剧集的批量预览。
-```
-
-**破坏性变更**有两种等价写法，release-please 均会自动 bump 到 major：
+### Exemplos de commit
 
 ```
-# 写法 1：type 后加 !
-feat(api)!: 移除 /api/v1/legacy 端点
+# Nova feature (minor bump)
+feat(image-backends): suporte ao backend OpenAI DALL-E 3
 
-# 写法 2：footer 含 BREAKING CHANGE（更常用，可以写多行说明）
-feat(auth): 统一 API Key 验证逻辑
+# Correção de bug (patch bump)
+fix(queue): corrigir lease de tarefa não devolvida após timeout
 
-BREAKING CHANGE: /api/v1/api-keys 的返回结构改为 { items: [...] }，
-旧客户端需要适配。
+# Com scope e corpo
+feat(grid): suporte a layout grid_12
+
+Estende o sistema de grid para 12 células, útil para pré-visualização em lote de séries longas.
 ```
 
-两种写法 release-please 都会：
-- 将版本号 bump 为 major
-- 在 changelog 顶部插入独立的 **⚠️ BREAKING CHANGES** 区块，把每条破坏性变更的描述汇总展示
-- 在对应 type section（如 `✨ 新功能`）下保留该 commit 的常规条目
+**Breaking changes** têm duas formas equivalentes; o release-please faz major em ambas:
+
+```
+# Forma 1: ! após o type
+feat(api)!: remover endpoint /api/v1/legacy
+
+# Forma 2: footer BREAKING CHANGE (mais comum, permite várias linhas)
+feat(auth): unificar lógica de validação de API Key
+
+BREAKING CHANGE: a resposta de /api/v1/api-keys passa a ser { items: [...] };
+clientes antigos precisam se adaptar.
+```
+
+Em ambos os casos o release-please:
+- faz bump major da versão
+- insere no topo do changelog um bloco **⚠️ BREAKING CHANGES** com as descrições
+- mantém a entrada normal na seção do type (ex.: `✨ Features`)

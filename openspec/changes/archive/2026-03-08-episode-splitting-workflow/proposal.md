@@ -1,124 +1,124 @@
 ## Why
 
-当前体系缺少**小说 → 集数的映射机制**。用户上传完整小说后，系统直接将全文传给 Gemini 生成剧本，但无法指定"这一集只用小说的某一部分"。具体表现：
+O sistema atual carece de um **mecanismo de mapeamento romance → episódios**. Depois que o usuário envia o romance completo, o sistema passa o texto inteiro ao Gemini para gerar o roteiro, mas não é possível especificar "este episódio usa só esta parte do romance". Manifestações concretas:
 
-1. `normalize_drama_script.py` 默认读取 `source/` 下**所有文件拼接**，`--source` 参数只能指定整个文件，不能指定文件内的范围
-2. `split-narration-segments` subagent 的描述中提到"本集小说文本范围"，但没有实际机制让用户定义或切分这个范围
-3. `manga-workflow` 编排 dispatch 时写了 `本集小说范围：{章节名/文件名/起止说明}`，但这个值无从获取——主 agent 不知道小说哪部分对应哪一集
+1. `normalize_drama_script.py` por padrão lê **todos os arquivos concatenados** em `source/`; o parâmetro `--source` só aceita o arquivo inteiro, não um intervalo dentro do arquivo
+2. A description do subagent `split-narration-segments` menciona "intervalo de texto do romance deste episódio", mas não há mecanismo real para o usuário definir ou fatiar esse intervalo
+3. No dispatch de `manga-workflow` está escrito `intervalo do romance deste episódio: {nome do capítulo/arquivo/descrição de início-fim}`, mas esse valor não tem de onde vir — o agente principal não sabe qual parte do romance corresponde a qual episódio
 
-后果：
-- 10 万字小说全量灌入 Gemini，生成质量不可控（模型自行决定用哪部分）
-- 用户无法按需制作某一集（比如只想先做前 1000 字的内容）
-- 多集制作时缺少一致的分集边界
+Consequências:
+- Romance de 100 mil caracteres é despejado por completo no Gemini; a qualidade fica incontrolável (o modelo decide sozinho o que usar)
+- O usuário não consegue produzir sob demanda só um episódio (ex.: só os primeiros 1000 caracteres)
+- Na produção multi-episódio faltam limites de divisão consistentes
 
 ## What Changes
 
-新增**渐进式分集规划**机制：通过两个脚本实现人机协作的分集流程。
+Novo mecanismo de **planejamento progressivo de divisão em episódios**: dois scripts implementam o fluxo colaborativo humano–máquina.
 
-### 核心思路
+### Ideia central
 
 ```
-用户指定目标字数（如 1000 字/集）
+Usuário define a meta de caracteres (ex.: 1000 caracteres/episódio)
     ↓
-peek 脚本展示切分点附近上下文（前后各 200 字）
+Script peek mostra o contexto perto do ponto de corte (200 caracteres antes/depois)
     ↓
-Agent 阅读上下文，建议自然断点（句号、段落、章节边界）
+Agent lê o contexto e sugere um ponto de quebra natural (ponto final, parágrafo, limite de capítulo)
     ↓
-用户确认或调整
+Usuário confirma ou ajusta
     ↓
-split --anchor "断点前文本" --dry-run  验证切分位置
+split --anchor "texto antes do ponto de quebra" --dry-run  valida a posição de corte
     ↓
-确认无误 → split 实际执行：episode_N.txt + _remaining.txt
+Confirmação → split executa de verdade: episode_N.txt + _remaining.txt
     ↓
-循环处理下一集
+Repete para o próximo episódio
 ```
 
-### 新增脚本
+### Scripts novos
 
-**1. `peek_split_point.py`** — 切分点探测
+**1. `peek_split_point.py`** — sondagem do ponto de corte
 
 ```bash
 python peek_split_point.py --source source/novel.txt --target 1000 --context 200
 ```
 
-- 输入：源文件路径、目标字数、上下文字数（默认 200）
-- 计数规则：含标点，不含空行（纯格式性空白行）
-- 输出：切分点前后的上下文文本 + 元信息（总字数、目标位置、实际字符偏移）
+- Entrada: caminho do arquivo-fonte, meta de caracteres, tamanho do contexto (padrão 200)
+- Regra de contagem: inclui pontuação, exclui linhas em branco (apenas formatação)
+- Saída: texto de contexto antes/depois do ponto de corte + metadados (total de caracteres, posição-alvo, offset real de caracteres)
 
-**2. `split_episode.py`** — 执行切分
+**2. `split_episode.py`** — executar o corte
 
 ```bash
-# 先 dry run 验证切分位置
-python split_episode.py --source source/novel.txt --episode 1 --anchor "他转身离开了。" --dry-run
+# Dry run primeiro para validar a posição
+python split_episode.py --source source/novel.txt --episode 1 --anchor "Ele se virou e partiu." --dry-run
 
-# 确认无误后实际执行
-python split_episode.py --source source/novel.txt --episode 1 --anchor "他转身离开了。"
+# Após confirmar, executar de verdade
+python split_episode.py --source source/novel.txt --episode 1 --anchor "Ele se virou e partiu."
 ```
 
-- 输入：源文件路径、集数、锚点文本（切分点前的 10-20 个字符）
-- `--dry-run`：仅展示切分预览（前文末尾 + 后文开头各 50 字），不写文件
-- 锚点匹配到多处时报错，要求提供更长的锚点文本
-- 输出：
-  - `source/episode_N.txt` — 本集内容
-  - `source/_remaining.txt` — 剩余内容（覆盖式更新）
-- 原文件始终保留不动
+- Entrada: caminho do arquivo-fonte, número do episódio, texto âncora (10–20 caracteres antes do ponto de corte)
+- `--dry-run`: só mostra a prévia do corte (50 caracteres do fim da parte anterior + início da parte seguinte), sem gravar arquivos
+- Se a âncora casar em vários pontos, erro pedindo âncora mais longa
+- Saída:
+  - `source/episode_N.txt` — conteúdo deste episódio
+  - `source/_remaining.txt` — conteúdo restante (atualização por sobrescrita)
+- O arquivo original permanece intacto
 
-### 工作流集成
+### Integração no fluxo de trabalho
 
-分集规划作为**阶段 2（单集预处理）的前置检查**嵌入 `manga-workflow`：
-
-```
-阶段 2 触发时：
-  检查 source/episode_{N}.txt 是否存在
-    ├─ 存在 → 直接进入预处理
-    └─ 不存在 → 触发分集规划流程：
-         1. 主 agent 询问用户目标字数（或使用上次设定）
-         2. dispatch subagent 调用 peek_split_point.py
-         3. Agent 分析上下文，建议切分点
-         4. 用户确认
-         5. 调用 split_episode.py 执行切分
-         6. 继续进入预处理（使用 episode_N.txt）
-```
-
-### 按需单集切分
-
-分集规划**不是一次性把整部小说拆完**，而是每次只切分当前需要制作的那一集：
+O planejamento de divisão entra como **checagem prévia da etapa 2 (pré-processamento de episódio)** em `manga-workflow`:
 
 ```
-制作第 1 集时:
-  source/episode_1.txt 不存在
-  → peek novel.txt → 确认 → split → episode_1.txt + _remaining.txt
-  → 继续制作第 1 集的预处理、剧本生成、资产生成...
-
-（过了几天）制作第 2 集时:
-  source/episode_2.txt 不存在
-  → peek _remaining.txt → 确认 → split → episode_2.txt + _remaining.txt（更新）
-  → 继续制作第 2 集...
-
-用户可以随时停下，不必一口气规划所有集数。
+Ao disparar a etapa 2:
+  Verificar se source/episode_{N}.txt existe
+    ├─ Existe → entrar direto no pré-processamento
+    └─ Não existe → disparar o fluxo de planejamento de divisão:
+         1. Agente principal pergunta a meta de caracteres (ou usa a última definida)
+         2. Despacha subagent para chamar peek_split_point.py
+         3. Agent analisa o contexto e sugere o ponto de corte
+         4. Usuário confirma
+         5. Chama split_episode.py para executar o corte
+         6. Continua o pré-processamento (usando episode_N.txt)
 ```
 
-### 现有脚本适配
+### Corte sob demanda por episódio
 
-`normalize_drama_script.py` 和 `split-narration-segments` subagent 不需要大改——只需在 dispatch 时指定 `--source source/episode_N.txt`，让它们读取已切分好的单集文件而非全量小说。
+O planejamento de divisão **não fatia o romance inteiro de uma vez**; corta só o episódio que se pretende produzir agora:
+
+```
+Ao produzir o episódio 1:
+  source/episode_1.txt não existe
+  → peek novel.txt → confirmar → split → episode_1.txt + _remaining.txt
+  → continua pré-processamento, geração de roteiro, geração de ativos...
+
+(Alguns dias depois) ao produzir o episódio 2:
+  source/episode_2.txt não existe
+  → peek _remaining.txt → confirmar → split → episode_2.txt + _remaining.txt (atualizado)
+  → continua produção do episódio 2...
+
+O usuário pode parar a qualquer momento; não precisa planejar todos os episódios de uma vez.
+```
+
+### Adaptação dos scripts existentes
+
+`normalize_drama_script.py` e o subagent `split-narration-segments` não precisam de grandes mudanças — basta, no dispatch, especificar `--source source/episode_N.txt` para lerem o arquivo de episódio já fatiado em vez do romance inteiro.
 
 ## Capabilities
 
 ### New Capabilities
-- `episode-splitting`: 渐进式分集规划——peek 探测切分点 + 人机协作确认 + 物理切分为 per-episode 文件
+- `episode-splitting`: planejamento progressivo de divisão em episódios — peek do ponto de corte + confirmação colaborativa humano–máquina + corte físico em arquivos per-episode
 
 ### Modified Capabilities
-- `workflow-orchestration`（来自 refactor-script-creation-workflow）: manga-workflow 阶段 2 增加前置检查，缺少 episode 文件时触发分集流程
+- `workflow-orchestration` (de refactor-script-creation-workflow): etapa 2 de manga-workflow ganha checagem prévia; se faltar arquivo de episódio, dispara o fluxo de divisão
 
 ## Impact
 
-- **新增文件**：
+- **Arquivos novos**:
   - `agent_runtime_profile/.claude/skills/manage-project/scripts/peek_split_point.py`
   - `agent_runtime_profile/.claude/skills/manage-project/scripts/split_episode.py`
-- **修改文件**：
-  - `agent_runtime_profile/.claude/skills/manga-workflow/SKILL.md` — 阶段 2 增加前置检查逻辑
-  - `agent_runtime_profile/.claude/settings.json` — 添加两个新脚本的 Bash 执行权限
-- **不受影响**：
-  - `normalize_drama_script.py` — 已支持 `--source` 参数，无需修改
-  - `split-narration-segments` subagent — dispatch 时指定文件路径即可
-  - 后端服务、前端、数据模型均不受影响
+- **Arquivos modificados**:
+  - `agent_runtime_profile/.claude/skills/manga-workflow/SKILL.md` — lógica de checagem prévia na etapa 2
+  - `agent_runtime_profile/.claude/settings.json` — permissão Bash dos dois novos scripts
+- **Não afetados**:
+  - `normalize_drama_script.py` — já suporta `--source`, sem mudanças
+  - subagent `split-narration-segments` — basta especificar o caminho no dispatch
+  - serviços de backend, frontend e modelos de dados não são afetados

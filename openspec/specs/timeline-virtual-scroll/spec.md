@@ -1,45 +1,45 @@
 # timeline-virtual-scroll Specification
 
 ## Purpose
-时间线分镜列表使用虚拟滚动（`@tanstack/react-virtual` 的 `useVirtualizer`），仅挂载视口附近的分镜行到 DOM，支持动态高度与原生图片懒加载，确保大量分镜时滚动流畅。实现于 `frontend/src/components/canvas/timeline/ShotList.tsx`。
+A lista de storyboards da timeline usa virtual scroll (`useVirtualizer` de `@tanstack/react-virtual`), montando no DOM apenas as linhas de storyboard próximas ao viewport, com suporte a altura dinâmica e lazy loading nativo de imagens, garantindo rolagem fluida com muitos storyboards. Implementado em `frontend/src/components/canvas/timeline/ShotList.tsx`.
+
 ## Requirements
-### Requirement: 虚拟滚动渲染
-分镜列表（`ShotList`）MUST 使用虚拟滚动技术渲染分镜行，仅将视口附近的分镜行挂载到 DOM 中。
+### Requirement: Renderização com virtual scroll
+A lista de storyboards (`ShotList`) MUST renderizar as linhas com virtual scroll, montando no DOM apenas as linhas próximas ao viewport.
 
-#### Scenario: 大量分镜的初始加载
-- **WHEN** 用户打开包含 50 个分镜的剧集
-- **THEN** DOM 中仅渲染视口可见的分镜行加上 overscan 数量（overscan 为 6），而非全部 50 个
+#### Scenario: Carga inicial com muitos storyboards
+- **WHEN** o usuário abre um episódio com 50 storyboards
+- **THEN** o DOM renderiza apenas as linhas visíveis no viewport mais o overscan (overscan = 6), e não os 50
 
-#### Scenario: 滚动浏览
-- **WHEN** 用户向下滚动时间线
-- **THEN** 新进入视口范围的 SegmentCard 被渲染，离开视口范围的 SegmentCard 被卸载
+#### Scenario: Rolagem para navegar
+- **WHEN** o usuário rola a timeline para baixo
+- **THEN** os SegmentCards que entram no alcance do viewport são renderizados e os que saem são desmontados
 
-### Requirement: 动态高度支持
-虚拟滚动 MUST 支持 SegmentCard 的动态高度，包括展开/折叠态导致的高度变化。
+### Requirement: Suporte a altura dinâmica
+O virtual scroll MUST suportar altura dinâmica do SegmentCard, incluindo mudanças por expandir/recolher.
 
-#### Scenario: 展开折叠卡片
-- **WHEN** 用户展开某个 SegmentCard 导致其高度变化
-- **THEN** 虚拟滚动列表正确调整后续项的位置，不出现跳跃或重叠
+#### Scenario: Expandir/recolher cartão
+- **WHEN** o usuário expande um SegmentCard e a altura muda
+- **THEN** a lista de virtual scroll ajusta corretamente a posição dos itens seguintes, sem saltos ou sobreposição
 
-#### Scenario: 预估高度与实际高度差异
-- **WHEN** SegmentCard 实际渲染高度与预估值不同
-- **THEN** virtualizer 通过 measureElement 自动修正，滚动位置保持平滑
+#### Scenario: Diferença entre altura estimada e real
+- **WHEN** a altura real renderizada do SegmentCard difere da estimativa
+- **THEN** o virtualizer corrige automaticamente via measureElement e a posição de rolagem permanece suave
 
-### Requirement: 图片懒加载
-视口内的 `<img>` 标签 MUST 使用浏览器原生懒加载属性。
+### Requirement: Lazy loading de imagens
+As tags `<img>` dentro do viewport MUST usar o atributo nativo de lazy loading do navegador.
 
-#### Scenario: overscan 区域的图片
-- **WHEN** SegmentCard 位于 overscan 区域（已渲染但未进入可视视口）
-- **THEN** 其 `<img>` 标签具有 `loading="lazy"` 属性，浏览器延迟加载直到接近可视区域
+#### Scenario: Imagens na região de overscan
+- **WHEN** o SegmentCard está na região de overscan (já renderizado, mas ainda fora do viewport visível)
+- **THEN** suas tags `<img>` têm `loading="lazy"`, e o navegador atrasa o carregamento até se aproximarem da área visível
 
-### Requirement: 滚动定位适配
-Agent 或系统触发的滚动定位（scrollTarget）MUST 在虚拟滚动环境下正常工作。
+### Requirement: Adaptação do posicionamento por rolagem
+O posicionamento por rolagem disparado pelo Agent ou pelo sistema (scrollTarget) MUST funcionar no ambiente de virtual scroll.
 
-#### Scenario: Agent 触发滚动到不在 DOM 中的分镜
-- **WHEN** scrollTarget 指向一个当前不在 DOM 中的 segment ID
-- **THEN** 系统通过 virtualizer.scrollToIndex 滚动到目标位置，目标 SegmentCard 被渲染并可见
+#### Scenario: Agent rola até um storyboard fora do DOM
+- **WHEN** scrollTarget aponta para um segment ID que não está no DOM
+- **THEN** o sistema rola até a posição alvo via virtualizer.scrollToIndex e o SegmentCard alvo é renderizado e fica visível
 
-#### Scenario: 滚动定位后的高亮
-- **WHEN** 滚动定位到目标 segment 后
-- **THEN** 目标 SegmentCard 执行 flash 高亮动画，与当前行为一致
-
+#### Scenario: Destaque após posicionamento por rolagem
+- **WHEN** a rolagem posiciona no segment alvo
+- **THEN** o SegmentCard alvo executa a animação de flash de destaque, igual ao comportamento atual

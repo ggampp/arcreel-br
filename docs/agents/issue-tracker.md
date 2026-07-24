@@ -1,57 +1,57 @@
 # Issue tracker: GitHub
 
-Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues e specs deste repo vivem como GitHub issues. Use a CLI `gh` para todas as operações.
 
-## Conventions
+## Convenções
 
-- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
-- **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
-- **Comment on an issue**: `gh issue comment <number> --body "..."`
-- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **Close**: `gh issue close <number> --comment "..."`
+- **Criar issue**: `gh issue create --title "..." --body "..."`. Use heredoc para bodies multi-linha.
+- **Ler issue**: `gh issue view <number> --comments`, filtrando comments com `jq` e também buscando labels.
+- **Listar issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` com filtros `--label` e `--state` apropriados.
+- **Comentar em issue**: `gh issue comment <number> --body "..."`
+- **Aplicar / remover labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
+- **Fechar**: `gh issue close <number> --comment "..."`
 
-Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
+Infira o repo a partir de `git remote -v` — o `gh` faz isso automaticamente quando roda dentro de um clone.
 
-## Spec 与细分 issue
+## Spec e issues de implementação
 
-Spec（原 PRD）和按 Spec 拆分出的实现 issue 必须在**列表视图**就能区分与溯源，不能只靠正文：
+Spec (antigo PRD) e issues de implementação derivados de uma Spec precisam ser distinguíveis e rastreáveis **na visão de lista**, não só no corpo:
 
-### Spec issue
+### Issue de Spec
 
-- 标题统一以 `Spec: ` 开头，例如 `Spec: 集成 TTS 文本转语音 —— …`
-- 打 `Spec` 标签。`to-spec` 发布时同时加 `Spec` 与 `ready-for-agent` 两个标签
+- O título começa unificadamente com `Spec: `, ex.: `Spec: integrar TTS text-to-speech —— …`
+- Aplique a label `Spec`. Ao publicar com `to-spec`, adicione ao mesmo tempo as labels `Spec` e `ready-for-agent`
 
-### 细分（实现）issue
+### Issue de implementação (subdivisão)
 
-- 标题**末尾**加归属尾缀 `[Spec #<父编号>]`，例如 `分集账本：project.json schema 扩展与存量项目启动回填 [Spec #751]` —— 任何列表视图（`gh issue list`、Web、通知）都能直接看出归属
-- 正文保留 `## Parent` 一节引用父 Spec（既有模板不变，尾缀是补充而非替代）
-- 同时挂为父 Spec 的 **GitHub 原生 sub-issue**，让父 Spec 显示完成进度条：
+- No **final** do título, acrescente o sufixo de pertencimento `[Spec #<número-pai>]`, ex.: `livro-razão de episódios: extensão do schema de project.json e backfill de projetos existentes na subida [Spec #751]` — qualquer visão de lista (`gh issue list`, Web, notificações) enxerga o pertencimento de imediato
+- No corpo, mantenha a seção `## Parent` referenciando a Spec pai (o template existente não muda; o sufixo é complemento, não substituto)
+- Ao mesmo tempo, anexe como **sub-issue nativa do GitHub** da Spec pai, para a Spec pai mostrar a barra de progresso de conclusão:
 
 ```bash
-# 1. 取细分 issue 的 database id（不是 issue 编号）
-sub_id=$(gh api repos/{owner}/{repo}/issues/<细分编号> --jq .id)
-# 2. 挂到父 Spec 下（-F 传整数）
-gh api repos/{owner}/{repo}/issues/<父编号>/sub_issues -F sub_issue_id=$sub_id
+# 1. Pegar o database id da issue de implementação (não o número da issue)
+sub_id=$(gh api repos/{owner}/{repo}/issues/<número-da-subdivisão> --jq .id)
+# 2. Anexar sob a Spec pai (-F passa inteiro)
+gh api repos/{owner}/{repo}/issues/<número-pai>/sub_issues -F sub_issue_id=$sub_id
 ```
 
-`to-tickets` 拆分 Spec 时，每个 issue 创建后都要补这两步（标题尾缀在创建时直接写入标题）。
+Quando `to-tickets` subdividir uma Spec, cada issue criada deve completar esses dois passos (o sufixo do título já entra no create).
 
-## When a skill says "publish to the issue tracker"
+## Quando uma skill disser "publish to the issue tracker"
 
-Create a GitHub issue.
+Crie uma GitHub issue.
 
-## When a skill says "fetch the relevant ticket"
+## Quando uma skill disser "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Execute `gh issue view <number> --comments`.
 
-## Wayfinding operations
+## Operações de wayfinding
 
-Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
+Usadas por `/wayfinder`. O **mapa** é uma única issue com issues **filhas** como tickets.
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
-- **Child ticket**: an issue linked to the map as a GitHub sub-issue (`gh api` on the sub-issues endpoint). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
-- **Blocking**: GitHub's **native issue dependencies** — the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only — the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
-- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
-- **Claim**: `gh issue edit <n> --add-assignee @me` — the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+- **Mapa**: uma única issue com label `wayfinder:map`, contendo o body Notes / Decisions-so-far / Fog. `gh issue create --label wayfinder:map`.
+- **Ticket filho**: issue ligada ao mapa como sub-issue do GitHub (`gh api` no endpoint de sub-issues). Onde sub-issues não estiverem habilitadas, adicione o filho a uma task list no body do mapa e coloque `Part of #<map>` no topo do body do filho. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Uma vez reivindicado, o ticket é atribuído ao dev condutor.
+- **Bloqueio**: **dependências nativas de issue do GitHub** — a representação canônica e visível na UI. Adicione uma aresta com `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, onde `<blocker-db-id>` é o **database id** numérico do blocker (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _não_ o `#number` nem o `node_id`). O GitHub reporta `issue_dependencies_summary.blocked_by` (só blockers abertos — o gate ao vivo). Onde dependências não estiverem disponíveis, caia para uma linha `Blocked by: #<n>, #<n>` no topo do body do filho. Um ticket fica desbloqueado quando todo blocker está fechado.
+- **Consulta de fronteira**: liste os filhos abertos do mapa (`gh issue list --state open`, com escopo nas sub-issues / task list do mapa), descarte os que tiverem blocker aberto (`issue_dependencies_summary.blocked_by > 0`, ou issue aberta na linha `Blocked by`) ou assignee; o primeiro na ordem do mapa vence.
+- **Reivindicar**: `gh issue edit <n> --add-assignee @me` — a primeira escrita da sessão.
+- **Resolver**: `gh issue comment <n> --body "<resposta>"`, depois `gh issue close <n>`, depois anexe um ponteiro de contexto (gist + link) em Decisions-so-far do mapa.

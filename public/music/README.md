@@ -1,12 +1,12 @@
-# Ad music library (project-local)
+# Biblioteca de música de anúncio (escopo de projeto)
 
-BGM for ad compose is **project-scoped**, not a global CDN library.
+O BGM do compose de anúncio é **escopado ao projeto**, não uma biblioteca global de CDN.
 
-## Usage
+## Uso
 
-1. Create a `music/` directory under the project root (next to `project.json`).
-2. Place royalty-cleared audio files there (e.g. `music/upbeat.mp3`).
-3. Set on the ad project:
+1. Crie um diretório `music/` na raiz do projeto (ao lado de `project.json`).
+2. Coloque ali arquivos de áudio com direitos liberados (ex.: `music/upbeat.mp3`).
+3. Defina no projeto de anúncio:
 
 ```json
 "ad_timeline": {
@@ -17,6 +17,6 @@ BGM for ad compose is **project-scoped**, not a global CDN library.
 }
 ```
 
-4. Run `compose-video` on `scripts/episode_1.json`, or pass `--music music/upbeat.mp3`.
+4. Rode `compose-video` em `scripts/episode_1.json`, ou passe `--music music/upbeat.mp3`.
 
-This folder under `public/` is documentation only; do not ship copyrighted tracks in the repo.
+Esta pasta sob `public/` é só documentação; não envie faixas com copyright no repositório.

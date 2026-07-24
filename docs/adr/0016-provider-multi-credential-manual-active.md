@@ -2,11 +2,11 @@
 status: accepted
 ---
 
-# 供应商多凭证用独立凭证表 + 手动切换活跃凭证，不做自动轮换
+# Multi-credencial de provider: tabela dedicada de credenciais + troca manual da ativa; sem rotação automática
 
-凭证是结构化实体（名称 / 密钥 / URL / 活跃位），与共享 KV 配置职责不同。决定每个供应商支持多套凭证、存于专用 `provider_credential` 表（与共享配置分表），每供应商至多一条 `is_active`（DB partial unique index 兜底），由用户在 UI 手动切换、全局生效，删除活跃凭证时自动改选 `created_at` 最早的另一条；明确**不做**自动轮换 / 负载均衡 / 加密存储 / 使用统计——KV 前缀建模命名脆弱、单 JSON 字段并发读改写复杂，专用表职责清晰且行为可预测。
+Credencial é entidade estruturada (nome / secret / URL / flag ativa), com responsabilidade diferente da config KV compartilhada. Decidimos que cada provider suporte várias credenciais, na tabela dedicada `provider_credential` (separada da config compartilhada), no máximo uma `is_active` por provider (partial unique index no DB como rede de segurança), troca manual na UI pelo usuário, efeito global; ao apagar a credencial ativa, escolhe automaticamente a de `created_at` mais antiga restante; **explicitamente sem** rotação automática / balanceamento de carga / armazenamento cifrado / estatística de uso — modelar com prefixo KV é frágil em nomes, um único campo JSON com read-modify-write concorrente é complexo; tabela dedicada tem responsabilidade clara e comportamento previsível.
 
 ## Consequences
 
-- 活跃位互斥要应用层在事务内保证，切换/删除需触发 backend 缓存失效。
-- Agent Anthropic 凭证沿用同一「多凭证 + 单 active」模型但独立成表（见 `docs/adr/0017`）；其删除行为更严格——活跃凭证不可直接删除、须先切换到另一条，没有「自动改选最早」。
+- A exclusão mútua da flag ativa precisa ser garantida na aplicação dentro da transação; troca/remoção deve invalidar o cache do backend.
+- Credenciais Anthropic do Agent reutilizam o mesmo modelo «multi-credencial + um active», mas em tabela própria (ver `docs/adr/0017`); a remoção é mais estrita — a credencial ativa não pode ser apagada direto, é preciso trocar para outra antes; não há «auto-escolher a mais antiga».

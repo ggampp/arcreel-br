@@ -2,12 +2,12 @@
 status: accepted
 ---
 
-# 视频时长以 per-model supported_durations 为单一真相源，原值透传、解析不到即 fail loud
+# Duração de vídeo: per-model supported_durations como única fonte de verdade; valor original repassado; se não resolver, fail loud
 
-backend 内的桶映射（把 6 静默改成 8）和 `or [4,6,8]` 隐性 fallback 是「选 6s 却被改成 8s、再被对端拒为非法」事故的根因。决定每个视频模型声明一个非空离散 `supported_durations`，三个消费点（剧本 prompt / 前端选择器 / 视频请求体）同源消费；各 backend 删除 duration 桶映射与归一化、请求体原值透传、越界由对端以 400 反馈；resolver 拿到空集时抛 `ValueError`、删除所有隐性 fallback——宁可 fail loud 引导用户在配置页修正，也不静默篡改用户/LLM 的选择或掩盖配置缺陷。
+O mapeamento em buckets dentro do backend (transformar 6 em 8 em silêncio) e o fallback implícito `or [4,6,8]` são a causa-raiz do incidente «escolheu 6s, virava 8s, e o peer rejeitava como ilegal». Decidimos que cada modelo de vídeo declare um `supported_durations` discreto não vazio; três pontos de consumo (prompt de roteiro / seletor do frontend / body do request de vídeo) consomem a mesma origem; cada backend remove mapeamento e normalização de duration, repassa o valor original no body; fora da faixa o peer devolve 400; se o resolver receber conjunto vazio, lança `ValueError` e **todos** os fallbacks implícitos saem — melhor fail loud guiando o usuário a corrigir na página de config do que adulterar em silêncio a escolha do usuário/LLM ou mascarar defeito de config.
 
 ## Consequences
 
-- schema 层不引入连续区间类型，改用 list 全展开 + 前端检测连续性的折中。
-- 自定义供应商缺省时由 model_id 启发式预设表预填（未命中回退保守默认），Alembic 回填迁移内联复制预设快照而非 import 模块，以保历史迁移确定性。
-- 一处受限例外：Vidu 因 API 按 endpoint 列出差异很大的合法时长集，保留 `_coerce_duration` 端点级就近校正 + warning，与 model 级单一真相源是不同维度。
+- A camada de schema não introduz tipo de intervalo contínuo; o meio-termo é list expandida por completo + frontend detecta continuidade.
+- Custom provider, se faltar default, pré-preenche com tabela heurística por model_id (miss → default conservador); a migração Alembic de backfill copia o snapshot de presets inline em vez de importar módulo, para manter determinismo de migrações históricas.
+- Uma exceção limitada: Vidu, porque a API lista conjuntos de duração legal muito diferentes por endpoint, mantém correção ao mais próximo no nível do endpoint `_coerce_duration` + warning — dimensão diferente da única fonte de verdade no nível do model.

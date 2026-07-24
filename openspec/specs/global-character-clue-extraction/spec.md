@@ -1,73 +1,73 @@
 ## ADDED Requirements
 
-### Requirement: 资产提取须支持全书分析模式
+### Requirement: Extração de ativos deve suportar modo de análise do livro inteiro
 
-`analyze-assets` subagent SHALL 支持分析整部小说并一次性提取所有角色 / 场景 / 道具。
+O subagent `analyze-assets` SHALL suportar analisar o romance completo e extrair de uma vez todos os personagens / cenas / props.
 
-#### Scenario: 分析整部小说
-- **WHEN** subagent 被 dispatch 且未指定分析范围
-- **THEN** subagent 读取 `projects/{project_name}/source/` 下的所有小说文本，提取全部角色 / 场景 / 道具，写入 project.json
+#### Scenario: Analisar o romance inteiro
+- **WHEN** o subagent é despachado sem escopo de análise especificado
+- **THEN** o subagent lê todos os textos em `projects/{project_name}/source/`, extrai todos os personagens / cenas / props e grava em project.json
 
-#### Scenario: 分析指定章节范围
-- **WHEN** subagent 被 dispatch 且指定了分析范围（如"第1-3章"或"某个文件"）
-- **THEN** subagent 只分析指定范围的文本，提取该范围内的角色 / 场景 / 道具
+#### Scenario: Analisar intervalo de capítulos especificado
+- **WHEN** o subagent é despachado com escopo especificado (ex.: "capítulos 1–3" ou "um arquivo")
+- **THEN** o subagent analisa apenas o texto nesse intervalo e extrai personagens / cenas / props dessa parte
 
-### Requirement: 资产提取须支持增量追加模式
+### Requirement: Extração de ativos deve suportar modo de acréscimo incremental
 
-当 project.json 中已有角色 / 场景 / 道具时，subagent SHALL 对比现有数据，只追加新发现的资产，不覆盖已有定义。
+Quando project.json já tem personagens / cenas / props, o subagent SHALL comparar com os dados existentes e apenas acrescentar ativos novos descobertos, sem sobrescrever definições existentes.
 
-#### Scenario: 已有角色列表时追加新角色
-- **WHEN** project.json 中已有 5 个角色定义，subagent 分析后发现 3 个新角色
-- **THEN** subagent 只将 3 个新角色追加到 project.json，保留原有 5 个角色不变
+#### Scenario: Acrescentar novos personagens com lista já existente
+- **WHEN** project.json já tem 5 definições de personagem e o subagent descobre 3 novos
+- **THEN** o subagent apenas acrescenta os 3 novos em project.json, preservando os 5 originais
 
-#### Scenario: 已有角色的描述不被覆盖
-- **WHEN** project.json 中某角色已有手动修改过的 description 或 character_sheet
-- **THEN** subagent 不覆盖该角色的已有数据，仅在返回摘要中标注"已存在，跳过"
+#### Scenario: Descrições de personagens existentes não são sobrescritas
+- **WHEN** um personagem em project.json já tem description ou character_sheet editados manualmente
+- **THEN** o subagent não sobrescreve esses dados e apenas marca no resumo retornado "já existe, ignorado"
 
-### Requirement: 角色提取结果须符合图像生成规范
+### Requirement: Resultado da extração de personagens deve seguir normas de geração de imagem
 
-提取的角色描述 SHALL 仅包含可直接用于图像生成的视觉信息。
+As descrições extraídas de personagens SHALL conter apenas informações visuais utilizáveis diretamente na geração de imagem.
 
-#### Scenario: 角色描述仅含视觉要素
-- **WHEN** subagent 提取角色信息
-- **THEN** description 字段包含外貌要点、服装、标志物、色彩关键词、参考风格，不包含性格描述、角色关系、剧情背景等非视觉信息
+#### Scenario: Descrição do personagem só com elementos visuais
+- **WHEN** o subagent extrai informações do personagem
+- **THEN** o campo description inclui pontos de aparência, roupa, marcos distintivos, palavras-chave de cor e estilo de referência, sem personalidade, relações ou enredo
 
-#### Scenario: voice_style 单独记录
-- **WHEN** 小说中有角色声音/语气描述
-- **THEN** subagent 将声音信息记录在 voice_style 字段（用于后期配音参考），与视觉描述分离
+#### Scenario: voice_style registrado separadamente
+- **WHEN** o romance descreve voz/tom do personagem
+- **THEN** o subagent registra a informação de voz em voice_style (referência para dublagem posterior), separada da descrição visual
 
-### Requirement: 场景与道具分别按资产类型提取
+### Requirement: Cenas e props extraídos por tipo de ativo
 
-提取的环境 / 物品 SHALL 区分为场景（scene）和道具（prop）两类资产，分别写入 project.json 的对应集合。
+Ambientes / objetos extraídos SHALL ser classificados como cena (scene) ou prop, gravados nas coleções correspondentes de project.json.
 
-#### Scenario: 环境提取为 scene 资产
-- **WHEN** 提取对象为环境/场景（如"竹林深处"、"客栈大堂"）
-- **THEN** 写入 scenes 集合，描述包含空间结构、光线氛围
+#### Scenario: Ambientes extraídos como ativo scene
+- **WHEN** o objeto é um ambiente/cena (ex.: "fundo do bambuzal", "salão da estalagem")
+- **THEN** é gravado na coleção scenes, com descrição de estrutura espacial e atmosfera de luz
 
-#### Scenario: 物品提取为 prop 资产
-- **WHEN** 提取对象为物品/道具（如"玉佩"、"信件"）
-- **THEN** 写入 props 集合，描述包含尺寸参考、材质、外观细节
+#### Scenario: Objetos extraídos como ativo prop
+- **WHEN** o objeto é um item/prop (ex.: "pingente de jade", "carta")
+- **THEN** é gravado na coleção props, com descrição de referência de tamanho, material e detalhes de aparência
 
-### Requirement: 提取结果须通过数据验证
+### Requirement: Resultados da extração devem passar validação de dados
 
-subagent 写入 project.json 后 SHALL 调用数据验证确保完整性。
+Após gravar em project.json, o subagent SHALL chamar validação de dados para garantir integridade.
 
-#### Scenario: 调用 validate_project 验证
-- **WHEN** subagent 完成角色 / 场景 / 道具写入
-- **THEN** subagent 调用 `validate_project(project_name)` 验证 project.json 结构和引用完整性
+#### Scenario: Chamar validate_project
+- **WHEN** o subagent termina a gravação de personagens / cenas / props
+- **THEN** o subagent chama `validate_project(project_name)` para validar estrutura e integridade de referências de project.json
 
-#### Scenario: 验证失败时修复
-- **WHEN** validate_project 返回验证失败
-- **THEN** subagent 根据错误信息修复数据，重新验证直到通过
+#### Scenario: Corrigir em caso de falha na validação
+- **WHEN** validate_project retorna falha
+- **THEN** o subagent corrige os dados com base nos erros e revalida até passar
 
-### Requirement: subagent 须返回结构化摘要
+### Requirement: Subagent deve retornar resumo estruturado
 
-`analyze-assets` subagent 返回给主 agent 的结果 SHALL 为精炼的结构化摘要，不包含原始小说文本。
+O resultado retornado por `analyze-assets` ao agente principal SHALL ser um resumo estruturado enxuto, sem o texto original do romance.
 
-#### Scenario: 返回角色摘要
-- **WHEN** subagent 完成角色提取
-- **THEN** 返回内容包含：新增角色数量、角色名称列表、每个角色的一句话描述
+#### Scenario: Retornar resumo de personagens
+- **WHEN** o subagent conclui a extração de personagens
+- **THEN** o retorno inclui: quantidade de personagens novos, lista de nomes e descrição de uma frase por personagem
 
-#### Scenario: 返回场景与道具摘要
-- **WHEN** subagent 完成场景 / 道具提取
-- **THEN** 返回内容包含：新增场景数量、新增道具数量、各自的名称列表
+#### Scenario: Retornar resumo de cenas e props
+- **WHEN** o subagent conclui a extração de cenas / props
+- **THEN** o retorno inclui: quantidade de cenas novas, quantidade de props novos e listas de nomes de cada um

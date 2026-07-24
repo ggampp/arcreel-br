@@ -1,67 +1,67 @@
 ---
 name: manage-project
-description: 项目管理工具集。使用场景：新增/修改角色/场景/道具到 project.json（经 patch_project 工具，按 table+name upsert）、写顶层 settings 字段、编辑项目概述 overview，以及查询视频模型能力（get_video_capabilities）。分集规划不在本 skill：走 mcp__arcreel__plan_episodes / replan_episodes 服务端工具。
+description: Kit de ferramentas de gestão de projeto. Cenários: incluir/modificar personagem/cena/prop em project.json (via patch_project, upsert por table+name), gravar campos de settings de topo, editar overview do projeto e consultar capacidades do modelo de vídeo (get_video_capabilities). Planejamento de episódios não está neste skill: use as ferramentas de servidor mcp__arcreel__plan_episodes / replan_episodes.
 user-invocable: false
 ---
 
-# 项目管理工具集
+# Kit de ferramentas de gestão de projeto
 
-提供 project.json 的角色/场景/道具批量写入、项目级 settings 与项目概述编辑，以及视频模型能力查询。
+Oferece escrita em lote de personagem/cena/prop em project.json, edição de settings e overview no nível do projeto, e consulta de capacidades do modelo de vídeo.
 
-## 工具一览
+## Visão geral das ferramentas
 
-| 工具 | 功能 | 调用者 |
+| Ferramenta | Função | Quem chama |
 |------|------|--------|
-| `mcp__arcreel__patch_project`（SDK tool） | 新增/修改 project.json 的角色/场景/道具（按 table+name upsert）、顶层 settings 字段或项目概述（overview 分支） | subagent / 主 agent |
-| `mcp__arcreel__get_video_capabilities`（SDK tool） | 查当前项目视频模型能力（model 粒度，所有生成模式通用） | **subagent**（执行任务时自行查询） |
+| `mcp__arcreel__patch_project` (SDK tool) | Incluir/modificar personagem/cena/prop de project.json (upsert por table+name), campos de settings de topo ou overview do projeto (ramo overview) | subagent / agent principal |
+| `mcp__arcreel__get_video_capabilities` (SDK tool) | Consultar capacidades do modelo de vídeo do projeto atual (granularidade de model; comum a todos os modos de geração) | **subagent** (consulta sozinho ao executar a tarefa) |
 
-> 分集规划（拆集/重排）由服务端工具 `mcp__arcreel__plan_episodes` / `mcp__arcreel__replan_episodes` 完成，流程见 manga-workflow 阶段 2。
+> Planejamento de episódios (dividir/reordenar) é feito pelas ferramentas de servidor `mcp__arcreel__plan_episodes` / `mcp__arcreel__replan_episodes`; o fluxo está na etapa 2 do manga-workflow.
 
-## 角色/场景/道具写入
+## Escrita de personagem/cena/prop
 
-经 `mcp__arcreel__patch_project` 工具写入（项目名由 session 绑定，无需传参）。按 table 分别调用，
-每个 entry 以 name 为键 upsert：name 不存在则新增、存在则合并改字段。**修订已有资产描述需用户显式
-意图驱动**（避免静默覆盖人工编辑过的字段）;新增提取由 analyze-assets subagent 负责并默认 skip 已存在的。
+Gravar via ferramenta `mcp__arcreel__patch_project` (nome do projeto ligado à sessão, sem parâmetro). Chame uma vez por table;
+cada entry faz upsert pela chave name: se name não existir, inclui; se existir, faz merge dos campos. **Revisar descrição de ativo existente exige intenção explícita do usuário**
+(evita sobrescrever em silêncio campos editados manualmente); extração de novos ativos fica a cargo do subagent analyze-assets, que por padrão pula os já existentes.
 
 ```text
-mcp__arcreel__patch_project({"table": "characters", "entries": {"角色名": {"description": "...", "voice_style": "..."}}})
-mcp__arcreel__patch_project({"table": "scenes", "entries": {"场景名": {"description": "..."}}})
-mcp__arcreel__patch_project({"table": "props", "entries": {"道具名": {"description": "..."}}})
+mcp__arcreel__patch_project({"table": "characters", "entries": {"nome_do_personagem": {"description": "...", "voice_style": "..."}}})
+mcp__arcreel__patch_project({"table": "scenes", "entries": {"nome_da_cena": {"description": "..."}}})
+mcp__arcreel__patch_project({"table": "props", "entries": {"nome_do_prop": {"description": "..."}}})
 mcp__arcreel__patch_project({"settings": {"episode_target_units": 1000}})
 mcp__arcreel__patch_project({"settings": {"source_language": "en"}})
 mcp__arcreel__patch_project({"settings": {"narration_voice": "Ethan", "narration_speed": 1.2}})
-mcp__arcreel__patch_project({"overview": {"genre": "悬疑", "theme": "复仇与救赎"}})
+mcp__arcreel__patch_project({"overview": {"genre": "suspense", "theme": "vingança e redenção"}})
 ```
 
-**三种调用形态三选一**：传 `{"table", "entries"}` 走资产 upsert，传 `{"settings"}` 走顶层字段写入，
-传 `{"overview"}` 走项目概述编辑；同时给出多个或都不给会被拒。`settings` 白名单字段：
+**Três formas de chamada, escolha uma**: `{"table", "entries"}` faz upsert de ativo, `{"settings"}` grava campos de topo,
+`{"overview"}` edita o overview do projeto; passar várias ao mesmo tempo ou nenhuma é rejeitado. Campos na whitelist de `settings`:
 
-- `episode_target_units`：`int >= 1` 设置 / `null` 清除。每集目标体量（按 `source_language` 解读为阅读单位），分集规划工具按它把握每集切分体量
-- `source_language`：`"zh" / "en" / "vi"` 设置 / `null` 清除。优先级：**用户显式配置 > 自动推断**——用户明确指定语言时即可写入（不限于 overview 跳过或失败的场景）；无用户显式确认时不要自行猜测写入，正常路径由 overview 生成自动落盘。发现显式配置与自动推断 / 源文实际语言不一致时，提醒用户（WARN）并按显式配置继续，不阻塞流程
-- `brief`：字符串设置 / `null` 清除。创作诉求短文本，仅广告/短片项目（`content_mode=ad`）可写，其他项目类型写入会被拒
-- `planning_window_chars`：`int >= 1` 设置 / `null` 清除回内部默认。分集规划单批读取的源文窗口字符数
-- `planning_max_episodes`：`int >= 1` 设置 / `null` 清除回内部默认。分集规划单批最多产出的集数
-- `narration_voice`：非空字符串（音色 id 照供应商文档）设置 / `null` 清除。项目级旁白音色覆盖，优先于全局设置生效，只影响当前项目
-- `narration_speed`：正的有限数值（如 `1.2`）设置 / `null` 清除。项目级旁白语速覆盖，优先于全局设置生效，只影响当前项目
+- `episode_target_units`: `int >= 1` define / `null` limpa. Volume-alvo por episódio (interpretado como unidade de leitura conforme `source_language`); a ferramenta de planejamento de episódios usa isso para calibrar o corte por episódio
+- `source_language`: `"zh" / "en" / "vi"` define / `null` limpa. Prioridade: **config explícita do usuário > inferência automática** — se o usuário especificar a língua com clareza, pode gravar (não se limita a overview pulado ou falho); sem confirmação explícita do usuário, não adivinhe e grave sozinho; o caminho normal é o overview gravar automaticamente. Se a config explícita divergir da inferência / língua real do original, avise o usuário (WARN) e continue com a config explícita, sem bloquear o fluxo
+- `brief`: string define / `null` limpa. Texto curto de briefing criativo; só gravável em projetos anúncio/curta (`content_mode=ad`); outros tipos de projeto rejeitam
+- `planning_window_chars`: `int >= 1` define / `null` limpa e volta ao default interno. Nº de caracteres da janela de original lida por lote no planejamento de episódios
+- `planning_max_episodes`: `int >= 1` define / `null` limpa e volta ao default interno. Nº máximo de episódios produzidos por lote no planejamento
+- `narration_voice`: string não vazia (id de timbre conforme doc do provedor) define / `null` limpa. Override de timbre de narração no nível do projeto; prevalece sobre as settings globais e só afeta o projeto atual
+- `narration_speed`: número finito positivo (ex.: `1.2`) define / `null` limpa. Override de velocidade de narração no nível do projeto; prevalece sobre as settings globais e só afeta o projeto atual
 
-`overview` 白名单字段：`synopsis` / `genre` / `theme` / `world_setting`，**merge 语义**（只改传入字段、
-概述不存在时创建）。**修订概述需用户显式意图驱动**（避免静默覆盖人工编辑过的字段）。
+Campos na whitelist de `overview`: `synopsis` / `genre` / `theme` / `world_setting`, **semântica de merge** (só altera campos passados;
+se o overview não existir, cria). **Revisar o overview exige intenção explícita do usuário** (evita sobrescrever em silêncio campos editados manualmente).
 
-工具返回会区分**新增 N 个 / 合并改字段 N 个**,并显式列出被忽略的字段（``reference_image`` /
-``character_sheet`` 等系统管理字段、``type`` / ``importance`` 等已废弃字段）。结构非法（如缺
-description）时不落盘并返回 `is_error: true`。
-**严禁**用 Write/Edit/Bash 直接改 `project.json`——只能走 patch_project 工具。
+O retorno da ferramenta distingue **N novos / N merge de campos** e lista explicitamente os campos ignorados (``reference_image`` /
+``character_sheet`` e outros campos geridos pelo sistema, ``type`` / ``importance`` e outros campos deprecados). Estrutura ilegal (ex.: falta
+description) não grava e retorna `is_error: true`.
+**Proibido** usar Write/Edit/Bash para alterar `project.json` diretamente — só via patch_project.
 
-## 查视频模型能力
+## Consultar capacidades do modelo de vídeo
 
-通过 MCP 工具查询（项目名由 session 绑定，无需传参）：
+Consulta via ferramenta MCP (nome do projeto ligado à sessão, sem parâmetro):
 
 ```text
 mcp__arcreel__get_video_capabilities({})
 ```
 
-**返回**：JSON 文本，含 `provider_id` / `model` / `supported_durations[]` / `max_duration` / `max_reference_images` / `source` / `default_duration` / `content_mode` / `generation_mode`。
+**Retorno**: texto JSON com `provider_id` / `model` / `supported_durations[]` / `max_duration` / `max_reference_images` / `source` / `default_duration` / `content_mode` / `generation_mode`.
 
-**用途**：所有 generation_mode（storyboard / grid / reference_video）的预处理 subagent 在执行时自查，用于决定单片段 / shot 时长。**决策优先级**（高到低）：硬约束（时长必须取自 `supported_durations`；reference_video 的 unit 总时长 ≤ `max_duration`）> `default_duration` 偏好（非 null 时作默认值）> 打包效率 / 内容需要（reference_video 组合 shot 贴近 `max_duration`；narration / drama 长句、复杂画面可取更长值）。超限时重拆 unit，不违约时长。
+**Uso**: subagents de pré-processamento de todos os generation_mode (storyboard / grid / reference_video) consultam sozinhos na execução para decidir duração por segmento / shot. **Prioridade de decisão** (alta→baixa): restrição rígida (duração deve vir de `supported_durations`; duração total da unit em reference_video ≤ `max_duration`) > preferência `default_duration` (se não null, use como padrão) > eficiência de empacotamento / necessidade de conteúdo (reference_video combina shots para aproximar `max_duration`; narration / drama com frases longas ou quadro complexo podem tomar valor mais longo). Se estourar, redivida a unit; não viole a duração.
 
-**错误**：项目未找到或模型能力无法解析时返回 `is_error: true`，文本中包含原因。
+**Erro**: se o projeto não for encontrado ou as capacidades do modelo não puderem ser resolvidas, retorna `is_error: true` com o motivo no texto.

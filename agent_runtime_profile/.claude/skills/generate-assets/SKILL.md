@@ -1,99 +1,99 @@
 ---
 name: generate-assets
-description: "统一资产生成 skill：接受 `--type=character|scene|prop`，或不传自动扫所有 pending（缺 sheet）资源并按类型分发。当用户说"生成角色图"/"生成场景图"/"生成道具图"、想为新资产创建参考图、或有资产缺少 *_sheet 时使用。"
+description: "Skill unificado de geração de ativos: aceita `--type=character|scene|prop`, ou sem tipo varre todos os pending (sem sheet) e despacha por tipo. Use quando o usuário disser \"gerar arte de personagem\" / \"gerar arte de cena\" / \"gerar arte de prop\", quiser criar referência visual de novo ativo, ou houver ativos sem *_sheet."
 ---
 
-# 生成资产设计图
+# Gerar artes de design de ativos
 
-为项目的角色、场景、道具创建参考设计图，保证整个视频中视觉元素的一致性。
-图像供应商由项目设置选择（不锁定具体 backend）。
+Cria artes de referência de personagem, cena e prop do projeto, garantindo consistência dos elementos visuais em todo o vídeo.
+O provedor de imagem é escolhido nas settings do projeto (sem travar backend específico).
 
-> Prompt 编写原则详见 `.claude/references/generation-modes.md` 的"Prompt 语言"章节。
+> Princípios de escrita de prompt em `.claude/references/generation-modes.md`, seção «Idioma do prompt».
 
-## 共同约定
+## Convenções comuns
 
-- 所有资产 `description` 用**叙事式段落**，而不是关键词列表。
-- 用户只需在 project.json 中维护 `description`；最终交给图像 backend 的完整 prompt
-  （含布局 / 防崩短语 / 反向提示词）由 `lib/prompt_builders.py` 在 server 端拼好，
-  WebUI 与 Skill 走同一份真相源。
-- Pending 判定：对应资产的 `*_sheet` 字段为空或文件不存在。
-
----
-
-## 角色（character）
-
-### description 编写指南
-
-用连贯段落描述外貌、服装、气质，包含年龄、体态、面部特征、服饰细节。
-
-**示例**：
-
-> "二十出头的女子，身材纤细，鹅蛋脸上有一双清澈的杏眼，柳叶眉微蹙时带着几分忧郁。身着淡青色绣花罗裙，腰间系着同色丝带，显得端庄而不失灵动。"
-
-### 输出布局
-
-横版 16:9 四格设计稿，纯白背景：左侧约 40% 宽度的胸像特写，右侧三个 A-Pose 全身视图（正面 / 四分之三侧面 / 背面）。
-所有面板中角色面部、发型、服装、配饰需保持完全一致。
-
-> 用户填写 description 时只需关心外貌 / 服装等内容；布局由 builder 注入。
+- Toda `description` de ativo usa **parágrafo narrativo**, não lista de palavras-chave.
+- O usuário só mantém `description` em project.json; o prompt completo enviado ao backend de imagem
+  (layout / frases anti-colapso / negative prompts) é montado no server por `lib/prompt_builders.py`.
+  WebUI e Skill compartilham a mesma fonte de verdade.
+- Critério de pending: campo `*_sheet` do ativo vazio ou arquivo inexistente.
 
 ---
 
-## 场景（scene）
+## Personagem (character)
 
-### description 编写指南
+### Guia de escrita de description
 
-用连贯段落描述形态、光线、氛围，突出能跨场景识别的独特特征。
+Descreva em parágrafo contínuo aparência, traje e presença, incluindo idade, porte, traços faciais e detalhes de vestimenta.
 
-**示例**：
+**Exemplo**:
 
-> "村口的百年老槐树，树干粗壮需三人合抱，树皮龟裂沧桑。主干上有一道明显的雷击焦痕，从顶部蜿蜒而下。树冠茂密，夏日里洒下斑驳的树影。"
+> "Mulher de pouco mais de vinte anos, porte esguio, rosto oval com olhos de amêndoa límpidos; as sobrancelhas em arco se franzem com um toque de melancolia. Veste saia de seda azul-clara bordada, faixa da mesma cor na cintura, elegância sem perder leveza."
 
-### 输出布局
+### Layout de saída
 
-主画面占四分之三区域展示环境整体外观与氛围，右下角嵌入关键细节小图。
+Design sheet horizontal 16:9 em quatro painéis, fundo branco puro: close de busto à esquerda (~40% da largura), à direita três vistas de corpo inteiro em A-Pose (frente / três-quartos / costas).
+Rosto, cabelo, traje e acessórios devem ser idênticos em todos os painéis.
 
----
-
-## 道具（prop）
-
-### description 编写指南
-
-用连贯段落描述形态、质感、细节，突出能跨场景识别的独特特征。
-
-**示例**：
-
-> "一块翠绿色的祖传玉佩，约拇指大小，玉质温润透亮。表面雕刻着精致的莲花纹样，花瓣层层舒展。玉佩上系着一根红色丝绳，打着传统的中国结。"
-
-### 输出布局
-
-三视图水平排列于纯净浅灰背景：正面全视图、45° 侧视图、关键细节特写。
+> Ao preencher description o usuário só se preocupa com aparência / traje etc.; o layout é injetado pelo builder.
 
 ---
 
-## 工具调用
+## Cena (scene)
 
-入队走 MCP 工具：
+### Guia de escrita de description
 
-| 操作 | 工具 |
+Descreva em parágrafo contínuo forma, luz e atmosfera, destacando traços únicos reconhecíveis entre cenas.
+
+**Exemplo**:
+
+> "A velha acácia de cem anos na entrada da aldeia; o tronco grosso precisa de três pessoas para abraçar, a casca rachada e envelhecida. No tronco principal, uma marca clara de raio carbonizada serpenteia do topo para baixo. A copa é densa e, no verão, espalha sombra manchada."
+
+### Layout de saída
+
+O quadro principal ocupa cerca de três quartos da área mostrando a aparência e a atmosfera do ambiente; no canto inferior direito, miniatura do detalhe-chave.
+
+---
+
+## Prop (prop)
+
+### Guia de escrita de description
+
+Descreva em parágrafo contínuo forma, textura e detalhes, destacando traços únicos reconhecíveis entre cenas.
+
+**Exemplo**:
+
+> "Pingente de jade ancestral verde-esmeralda, cerca do tamanho de um polegar, textura suave e translúcida. Na superfície, lótus esculpido em camadas de pétalas abertas. No pingente, cordão vermelho amarrado em nó tradicional."
+
+### Layout de saída
+
+Três vistas alinhadas horizontalmente sobre fundo cinza-claro limpo: vista frontal completa, vista lateral a 45°, close do detalhe-chave.
+
+---
+
+## Chamadas de ferramentas
+
+Enfileirar via ferramenta MCP:
+
+| Operação | Ferramenta |
 |------|------|
-| 列出所有/某类 pending | `mcp__arcreel__list_pending_assets({"type": "character"})`（type 可省略） |
-| 生成所有 pending（三类各一轮） | `mcp__arcreel__generate_assets({})` |
-| 生成某类全部 pending | `mcp__arcreel__generate_assets({"type": "character"})` |
-| 生成指定多个 | `mcp__arcreel__generate_assets({"type": "prop", "names": ["玉佩", "密信"]})` |
-| 生成单个 | `mcp__arcreel__generate_assets({"type": "scene", "names": ["村口老槐树"]})` |
+| Listar todos / uma classe de pending | `mcp__arcreel__list_pending_assets({"type": "character"})` (type opcional) |
+| Gerar todos os pending (uma rodada por classe) | `mcp__arcreel__generate_assets({})` |
+| Gerar todos os pending de uma classe | `mcp__arcreel__generate_assets({"type": "character"})` |
+| Gerar vários específicos | `mcp__arcreel__generate_assets({"type": "prop", "names": ["pingente de jade", "carta secreta"]})` |
+| Gerar um | `mcp__arcreel__generate_assets({"type": "scene", "names": ["velha acácia da entrada"]})` |
 
-返回 `is_error: true` 时，文本里包含失败明细，按需重试或反馈给开发者。
+Se retornar `is_error: true`, o texto traz o detalhe da falha — retente ou reporte aos desenvolvedores.
 
-## 工作流程
+## Fluxo de trabalho
 
-1. **加载项目元数据** — 从 project.json 找出缺少对应 `*_sheet` 的资产
-2. **入队生成任务** — description 直接作为 prompt 提交；server 端 `lib.prompt_builders` 注入布局 / 防崩 / 反向
-3. **审核检查点** — 展示每张设计图，用户可批准或要求重新生成
-4. **更新 project.json** — 更新 `character_sheet` / `scene_sheet` / `prop_sheet` 路径
+1. **Carregar metadados do projeto** — em project.json achar ativos sem o `*_sheet` correspondente
+2. **Enfileirar tarefas de geração** — description enviada direto como prompt; no server `lib.prompt_builders` injeta layout / anti-colapso / negative
+3. **Checkpoint de revisão** — mostrar cada arte; o usuário aprova ou pede regeneração
+4. **Atualizar project.json** — atualizar caminhos de `character_sheet` / `scene_sheet` / `prop_sheet`
 
-## 质量检查
+## Checagem de qualidade
 
-- **角色**：四个面板（特写 + 三视图）的面部、发型、服装、配饰完全一致
-- **场景**：整体构图和标志性特征突出、光线氛围合适、细节图清晰
-- **道具**：三个视角清晰一致、细节符合描述、特殊纹理清晰可见
+- **Personagem**: nos quatro painéis (close + três vistas) rosto, cabelo, traje e acessórios totalmente consistentes
+- **Cena**: composição geral e traços marcantes em destaque, luz/atmosfera adequadas, detalhe nítido
+- **Prop**: três ângulos claros e consistentes, detalhes fiéis à descrição, texturas especiais visíveis

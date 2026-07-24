@@ -1,35 +1,35 @@
-## 1. 分镜时长选择器（DurationSelector）
+## 1. Seletor de duração do storyboard (DurationSelector)
 
-- [x] 1.1 将 `SegmentCard.tsx` 中的 `DurationBadge` 改造为 `DurationSelector`：`onUpdatePrompt` 存在时可点击，点击弹出 Popover；无 `onUpdatePrompt` 时保持只读外观
-- [x] 1.2 在 Popover 中渲染 4s / 6s / 8s 三个选项按钮，当前值高亮
-- [x] 1.3 选中新值后调用 `onUpdatePrompt(segmentId, "duration_seconds", newValue)` 并关闭 Popover
-- [x] 1.4 点击 Popover 外部时关闭 Popover，时长值不变
+- [x] 1.1 Transformar `DurationBadge` em `SegmentCard.tsx` em `DurationSelector`: clicável quando `onUpdatePrompt` existe, abrindo Popover; sem `onUpdatePrompt`, manter aparência somente leitura
+- [x] 1.2 No Popover, renderizar três botões de opção 4s / 6s / 8s, com o valor atual em destaque
+- [x] 1.3 Ao selecionar o novo valor, chamar `onUpdatePrompt(segmentId, "duration_seconds", newValue)` e fechar o Popover
+- [x] 1.4 Ao clicar fora do Popover, fechar o Popover sem alterar o valor da duração
 
-## 2. ClueStack 组件
+## 2. Componente ClueStack
 
-- [x] 2.1 新建 `frontend/src/components/ui/ClueStack.tsx`，参照 AvatarStack 结构实现线索缩略图叠放展示
-- [x] 2.2 线索图片形状使用圆角方形（`rounded`），尺寸与角色头像一致（`h-7 w-7`），叠放间距使用 `-space-x-2`
-- [x] 2.3 无 `clue_sheet` 时展示首字母色块（圆角方形），颜色由名称哈希值确定
-- [x] 2.4 超过 4 个线索时显示 `+n` 溢出徽章
-- [x] 2.5 分镜无关联线索时 ClueStack 不渲染
+- [x] 2.1 Criar `frontend/src/components/ui/ClueStack.tsx`, implementando a pilha de miniaturas de pistas com base na estrutura do AvatarStack
+- [x] 2.2 Formato da imagem de pista: quadrado arredondado (`rounded`), tamanho igual ao avatar de personagem (`h-7 w-7`), empilhamento com `-space-x-2`
+- [x] 2.3 Sem `clue_sheet`, exibir bloco colorido com a inicial (quadrado arredondado), cor determinada pelo hash do nome
+- [x] 2.4 Com mais de 4 pistas, exibir badge de overflow `+n`
+- [x] 2.5 Quando o storyboard não tem pistas associadas, não renderizar ClueStack
 
-## 3. 线索悬停浮窗（CluePopover）
+## 3. Popover de hover da pista (CluePopover)
 
-- [x] 3.1 在 `ClueStack.tsx` 内实现 `CluePopover`：左侧线索图片（无图则图标占位），右侧名称 + 类型标签 + 描述摘要
-- [x] 3.2 `type === "location"` 时显示"场景"标签（amber 色调）；`type === "prop"` 时显示"道具"标签（emerald 色调）
-- [x] 3.3 浮窗布局、尺寸、layer 与 AvatarPopover 保持一致
+- [x] 3.1 Em `ClueStack.tsx`, implementar `CluePopover`: à esquerda a imagem da pista (ou ícone placeholder sem imagem); à direita nome + etiqueta de tipo + resumo da descrição
+- [x] 3.2 Com `type === "location"`, etiqueta "Cena" (tom amber); com `type === "prop"`, etiqueta "Prop" (tom emerald)
+- [x] 3.3 Layout, tamanho e layer do popover alinhados ao AvatarPopover
 
-## 4. 角色浮窗增加类型标签
+## 4. Popover de personagem com etiqueta de tipo
 
-- [x] 4.1 修改 `AvatarStack.tsx` 中的 `AvatarPopover`：在角色名称旁新增"角色"标签（indigo 色调），与线索浮窗标签风格一致
+- [x] 4.1 Alterar `AvatarPopover` em `AvatarStack.tsx`: ao lado do nome do personagem, adicionar a etiqueta "Personagem" (tom indigo), no mesmo estilo das etiquetas do popover de pistas
 
-## 5. SegmentCard 头部集成
+## 5. Integração no cabeçalho do SegmentCard
 
-- [x] 5.1 在 `SegmentCard.tsx` 中获取关联线索名称（从 `clues_in_segment` / `clues_in_scene` 读取，与 `getCharacterNames` 同模式）
-- [x] 5.2 将 `_clues` 参数重命名为 `clues`，在头部渲染 `ClueStack`，头部右侧布局为 AvatarStack（左）+ 竖线 + ClueStack（右），两者之间用竖线（`border-l border-gray-700`）分隔
-- [x] 5.3 将 `DurationBadge` 替换为 `DurationSelector`，接入 `onUpdatePrompt` 回调
+- [x] 5.1 Em `SegmentCard.tsx`, obter os nomes das pistas associadas (ler de `clues_in_segment` / `clues_in_scene`, no mesmo padrão de `getCharacterNames`)
+- [x] 5.2 Renomear o parâmetro `_clues` para `clues` e renderizar `ClueStack` no cabeçalho; layout do lado direito: AvatarStack (esquerda) + divisor vertical + ClueStack (direita), separados por linha vertical (`border-l border-gray-700`)
+- [x] 5.3 Substituir `DurationBadge` por `DurationSelector`, conectando o callback `onUpdatePrompt`
 
-## 6. 验证
+## 6. Verificação
 
-- [x] 6.1 运行 `pnpm test` 确认全部测试通过
-- [x] 6.2 运行 `pnpm typecheck` 确认无 TypeScript 类型错误
+- [x] 6.1 Rodar `pnpm test` confirmando que todos os testes passam
+- [x] 6.2 Rodar `pnpm typecheck` confirmando zero erros de tipo no TypeScript

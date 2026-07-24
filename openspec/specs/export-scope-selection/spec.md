@@ -1,78 +1,78 @@
 ## ADDED Requirements
 
-### Requirement: 导出端点支持 scope 参数
-导出端点 `GET /api/v1/projects/{name}/export` SHALL 接受 `scope` query param，值为 `full` 或 `current`，默认为 `full`。
+### Requirement: Endpoint de exportação suporta parâmetro scope
+O endpoint de exportação `GET /api/v1/projects/{name}/export` SHALL aceitar o query param `scope` com valor `full` ou `current`, padrão `full`.
 
-- `scope=full`：打包项目目录下所有文件（现有行为）
-- `scope=current`：跳过 `versions/` 目录下的历史资源文件，仅保留裁剪后的 `versions/versions.json`
+- `scope=full`: empacota todos os arquivos do diretório do projeto (comportamento existente)
+- `scope=current`: ignora arquivos históricos sob `versions/`, mantendo apenas um `versions/versions.json` recortado
 
-#### Scenario: 默认 scope 为 full
-- **WHEN** 导出请求未携带 scope 参数
-- **THEN** 系统以 `full` 模式打包，ZIP 包含 `versions/` 目录下的所有历史文件
+#### Scenario: Scope padrão é full
+- **WHEN** a requisição de exportação não carrega o parâmetro scope
+- **THEN** o sistema empacota no modo `full`; o ZIP inclui todos os arquivos históricos sob `versions/`
 
-#### Scenario: scope=full 导出全部数据
-- **WHEN** 导出请求携带 `scope=full`
-- **THEN** ZIP 包含项目目录下所有文件（含 `versions/` 完整内容），与现有行为一致
+#### Scenario: scope=full exporta todos os dados
+- **WHEN** a requisição de exportação carrega `scope=full`
+- **THEN** o ZIP inclui todos os arquivos do diretório do projeto (incluindo o conteúdo completo de `versions/`), igual ao comportamento existente
 
-#### Scenario: scope=current 跳过历史版本文件
-- **WHEN** 导出请求携带 `scope=current`
-- **THEN** ZIP 不包含 `versions/storyboards/`、`versions/videos/`、`versions/characters/`、`versions/scenes/`、`versions/props/`、`versions/reference_videos/` 目录下的任何文件
+#### Scenario: scope=current ignora arquivos de versão histórica
+- **WHEN** a requisição de exportação carrega `scope=current`
+- **THEN** o ZIP não inclui nenhum arquivo sob `versions/storyboards/`, `versions/videos/`, `versions/characters/`, `versions/scenes/`, `versions/props/`, `versions/reference_videos/`
 
-#### Scenario: scope 值无效
-- **WHEN** 导出请求携带 `scope=invalid`
-- **THEN** 系统返回 422，提示 scope 必须为 `full` 或 `current`
+#### Scenario: Valor de scope inválido
+- **WHEN** a requisição de exportação carrega `scope=invalid`
+- **THEN** o sistema retorna 422, indicando que scope deve ser `full` ou `current`
 
-### Requirement: 仅当前版本导出保留裁剪后的版本元数据
-当 `scope=current` 时，ZIP 中 SHALL 包含 `versions/versions.json` 文件，但内容经过裁剪：每个资源的 `versions` 数组仅保留 `current_version` 对应的那一条记录。
+### Requirement: Exportação só da versão atual preserva metadados de versão recortados
+Quando `scope=current`, o ZIP SHALL incluir o arquivo `versions/versions.json`, com conteúdo recortado: o array `versions` de cada recurso mantém apenas o registro correspondente a `current_version`.
 
-裁剪后的 `versions.json` 保留以下元数据：
-- `current_version` 编号
-- 当前版本的 `prompt`（生成 prompt）
-- 当前版本的 `created_at`（创建时间）
-- 当前版本的 `version` 编号
+O `versions.json` recortado preserva os seguintes metadados:
+- número de `current_version`
+- `prompt` da versão atual (prompt de geração)
+- `created_at` da versão atual
+- número de `version` da versão atual
 
-#### Scenario: 裁剪后的 versions.json 只含当前版本记录
-- **WHEN** 项目 storyboard E1S01 有 3 个版本（current_version=3），以 `scope=current` 导出
-- **THEN** ZIP 中 `versions/versions.json` 的 `storyboards.E1S01.versions` 数组仅包含 version 3 的记录，`current_version` 仍为 3
+#### Scenario: versions.json recortado contém só o registro da versão atual
+- **WHEN** o storyboard E1S01 do projeto tem 3 versões (current_version=3) e a exportação usa `scope=current`
+- **THEN** em `versions/versions.json` no ZIP, o array `storyboards.E1S01.versions` contém apenas o registro da version 3, e `current_version` continua 3
 
-#### Scenario: 裁剪后的 versions.json 保留生成 prompt
-- **WHEN** 以 `scope=current` 导出，当前版本有 prompt 元数据
-- **THEN** 裁剪后的 `versions/versions.json` 中当前版本记录的 `prompt` 字段被保留
+#### Scenario: versions.json recortado preserva o prompt de geração
+- **WHEN** a exportação usa `scope=current` e a versão atual tem metadados de prompt
+- **THEN** no `versions/versions.json` recortado, o campo `prompt` do registro da versão atual é preservado
 
-### Requirement: 导出清单标记 scope
-`arcreel-export.json` 清单文件 SHALL 包含 `scope` 字段，值为 `"full"` 或 `"current"`，反映实际导出范围。
+### Requirement: Manifesto de exportação marca o scope
+O manifesto `arcreel-export.json` SHALL incluir o campo `scope` com valor `"full"` ou `"current"`, refletindo o escopo real da exportação.
 
-#### Scenario: full 导出清单 scope 为 full
-- **WHEN** 以 `scope=full` 导出
-- **THEN** `arcreel-export.json` 中 `scope` 字段值为 `"full"`
+#### Scenario: Manifesto de exportação full tem scope full
+- **WHEN** a exportação usa `scope=full`
+- **THEN** o campo `scope` em `arcreel-export.json` tem valor `"full"`
 
-#### Scenario: current 导出清单 scope 为 current
-- **WHEN** 以 `scope=current` 导出
-- **THEN** `arcreel-export.json` 中 `scope` 字段值为 `"current"`
+#### Scenario: Manifesto de exportação current tem scope current
+- **WHEN** a exportação usa `scope=current`
+- **THEN** o campo `scope` em `arcreel-export.json` tem valor `"current"`
 
-### Requirement: 前端导出交互支持范围选择
-前端 SHALL 在用户点击导出按钮后显示选择弹窗，提供两个导出选项：
+### Requirement: Interação de exportação no frontend suporta seleção de escopo
+O frontend SHALL, após o usuário clicar no botão de exportar, exibir um diálogo de seleção com duas opções:
 
-- **仅当前版本**（推荐）：标注为推荐选项，说明不含版本历史、体积更小
-- **全部数据**：说明包含完整版本历史
+- **Apenas versão atual** (recomendado): marcada como recomendada, indicando que não inclui histórico de versões e o volume é menor
+- **Todos os dados**: indicando que inclui o histórico completo de versões
 
-用户选择后，前端 SHALL 依次：
-1. 调用 `POST /api/v1/projects/{name}/export/token` 获取下载 token
-2. 构造下载 URL：`/api/v1/projects/{name}/export?download_token=xxx&scope=yyy`
-3. 通过 `window.open` 或 `<a>` 标签触发浏览器原生下载
+Após a escolha do usuário, o frontend SHALL, em sequência:
+1. Chamar `POST /api/v1/projects/{name}/export/token` para obter o download token
+2. Construir a URL de download: `/api/v1/projects/{name}/export?download_token=xxx&scope=yyy`
+3. Disparar o download nativo do navegador via `window.open` ou tag `<a>`
 
-#### Scenario: 用户选择仅当前版本导出
-- **WHEN** 用户点击导出按钮并选择 "仅当前版本"
-- **THEN** 浏览器发起 `scope=current` 的原生下载请求，可在浏览器下载管理器中看到下载进度
+#### Scenario: Usuário escolhe exportar apenas a versão atual
+- **WHEN** o usuário clica em exportar e escolhe "Apenas versão atual"
+- **THEN** o navegador inicia uma requisição nativa de download com `scope=current`, com progresso visível no gerenciador de downloads
 
-#### Scenario: 用户选择全部数据导出
-- **WHEN** 用户点击导出按钮并选择 "全部数据"
-- **THEN** 浏览器发起 `scope=full` 的原生下载请求
+#### Scenario: Usuário escolhe exportar todos os dados
+- **WHEN** o usuário clica em exportar e escolhe "Todos os dados"
+- **THEN** o navegador inicia uma requisição nativa de download com `scope=full`
 
-#### Scenario: 导出过程中用户可切换页面
-- **WHEN** 用户触发导出下载后切换到其他页面
-- **THEN** 下载不中断，因为由浏览器原生下载管理器接管
+#### Scenario: Usuário pode trocar de página durante a exportação
+- **WHEN** o usuário dispara o download de exportação e navega para outra página
+- **THEN** o download não é interrompido, pois o gerenciador nativo do navegador assume o controle
 
-#### Scenario: 下载 token 获取失败
-- **WHEN** 获取下载 token 的请求失败（网络错误或认证过期）
-- **THEN** 前端显示错误 toast 提示，不触发下载
+#### Scenario: Falha ao obter download token
+- **WHEN** a requisição de obtenção do download token falha (erro de rede ou autenticação expirada)
+- **THEN** o frontend exibe um toast de erro e não dispara o download

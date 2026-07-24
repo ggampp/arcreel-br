@@ -2,19 +2,19 @@
 status: accepted
 ---
 
-# 文本后端重试只包单次网络调用，降级编排在重试范围外、自带一层重试
+# Retry de backend de texto só embrulha uma chamada de rede; orquestração de degradação fica fora do alcance do retry e carrega a própria camada de retry
 
-结构化输出的降级机制（`docs/adr/0014`）让一次 `generate` 可能包含多次计费调用：原生调用 + 复验失败后的降级尝试若干次。此前三个文本后端（gemini / openai / ark）的 `generate` 整体被 `@with_retry_async` 装饰、降级调用在重试范围内——这曾是有意设计（「无论原生还是降级路径遇到瞬态错误，都统一由外层重试处理」），但它有两个代价：**叠乘重放**——降级尝试的瞬态失败触发外层重试时，会连带重放已成功（已计费）的原生调用，最坏情形是外层重试 × 降级尝试 × 内层重试的几何放大；**字符串误匹配**——`lib/retry.py` 的重试判定除类型匹配外还按消息文本匹配瞬态模式（"429" / "500" / "timeout" 等），降级穷尽抛出的异常插值模型侧动态文本（校验失败原因、模型输出片段），可能误中模式触发整体重放。
+O mecanismo de degradação de saída estruturada (`docs/adr/0014`) faz um `generate` poder conter várias chamadas cobráveis: chamada nativa + várias tentativas de degradação após falha de revalidação. Antes, o `generate` dos três backends de texto (gemini / openai / ark) era decorado inteiro com `@with_retry_async`, e as chamadas de degradação ficavam no alcance do retry — desenho deliberado na época («quer seja nativo ou caminho de degradação, erro transitório se trata unificado no retry externo»), mas com dois custos: **replay em cascata** — quando falha transitória de tentativa de degradação dispara o retry externo, a chamada nativa já bem-sucedida (já cobrada) se reenvia junto; o pior caso é amplificação geométrica retry externo × tentativas de degradação × retry interno; **match falso de string** — o julgamento de retry de `lib/retry.py`, além de match de tipo, casa padrões transitórios no texto da mensagem ("429" / "500" / "timeout" etc.); a exceção lançada quando a degradação se esgota interpola texto dinâmico do lado do modelo (motivo de falha de validação, fragmento de saída do modelo) e pode acertar o padrão por engano e reenviar o conjunto.
 
-我们决定三后端统一拆分：`generate` 为**无装饰编排层**（复验 + 降级调度），`@with_retry_async` 只装饰**单次网络调用方法**（gemini `_generate_native`、openai `_generate_native`、ark `_call_chat_completions`）；降级路径自带一层同配置重试（gemini 降级循环直调带重试的单次调用方法；openai / ark 的 Instructor 降级函数带装饰器——`instructor_fallback_*` 的契约是自身不做瞬态重试、由调用方提供）。复验与降级编排产生的异常不再穿过任何重试判定。新增文本后端应遵循同一结构：重试装饰器只出现在单次网络调用方法上。
+Decidimos unificar a divisão nos três backends: `generate` é a **camada de orquestração sem decorator** (revalidação + despacho de degradação); `@with_retry_async` só decora o **método de uma única chamada de rede** (gemini `_generate_native`, openai `_generate_native`, ark `_call_chat_completions`); o caminho de degradação carrega a própria camada de retry na mesma config (o loop de degradação gemini chama direto o método de uma chamada com retry; as funções de degradação Instructor de openai / ark levam o decorator — o contrato de `instructor_fallback_*` é não fazer retry transitório sozinho; o caller fornece). Exceções da orquestração de revalidação e degradação não atravessam mais nenhum julgamento de retry. Novos backends de texto devem seguir a mesma estrutura: o decorator de retry só aparece no método de uma única chamada de rede.
 
-两个配套细节：openai 的 schema 不兼容以 `None` 信号（而非异常）从带重试的单次调用方法传出——代理可能把上游 schema 错误包装成 429 等状态码，若以异常穿过装饰器会被字符串模式误判为瞬态错误白白重试，`None` 信号维持「schema 错误零重试、立即降级」的语义；ark 原生结构化调用的 `except Exception` 全捕获降级是既有语义（覆盖空 choices 等无法按错误文案白名单预判的中转形态），不随本决策收窄。
+Dois detalhes em conjunto: incompatibilidade de schema do openai sai do método de uma chamada com retry como sinal `None` (não como exceção) — o proxy pode embrulhar erro de schema do upstream em status como 429; se passasse como exceção pelo decorator, o padrão de string o julgaria transitório e re-tentaria em vão; o sinal `None` mantém a semântica «erro de schema zero retry, degrada na hora». A captura total `except Exception` da chamada estruturada nativa do ark que degrada é semântica pré-existente (cobre formas de relay como choices vazios que não se preveem por whitelist de texto de erro) e não se estreita com esta decisão.
 
-**明确不采用**：维持单一外层重试包整个流程。「降级路径的瞬态错误也能重试」的收益由降级层自带重试等价承接，而叠乘重放已计费调用与字符串误匹配这两个代价只有拆分能消除。
+**Explicitamente não adotamos**: manter um único retry externo embrulhando o fluxo inteiro. O ganho «erro transitório no caminho de degradação também re-tenta» a própria camada de degradação com retry absorve de forma equivalente; os dois custos de reenviar chamada já cobrada e match falso de string só a divisão elimina.
 
 ## Consequences
 
-- 各层重试预算独立且有界：最坏调用次数 = 原生重试上限 + 降级尝试数 × 降级层重试上限，不再几何叠乘。
-- 三后端各有「降级瞬态失败不重放原生调用」回归测试锁定该结构。
-- ark 的原生结构化调用由此获得单次调用层的瞬态重试（此前瞬态失败直接降级 Instructor），降级次数因而减少。
-- 残余风险：Instructor 库内校验穷尽的异常消息若恰含瞬态模式字样，仍可能重放降级路径自身（校验在库内、拆不出重试范围），但不再波及已成功的原生调用。
+- O orçamento de retry de cada camada é independente e limitado: pior número de chamadas = teto de retry nativo + tentativas de degradação × teto de retry da camada de degradação, sem cascata geométrica.
+- Cada um dos três backends tem teste de regressão «falha transitória de degradação não reenvia a chamada nativa» travando essa estrutura.
+- A chamada estruturada nativa do ark passa a ter retry transitório na camada de uma chamada (antes falha transitória ia direto para Instructor) — o número de degradações assim cai.
+- Risco residual: se a mensagem de exceção de esgotamento de validação dentro da lib Instructor contiver por acaso o texto de padrão transitório, ainda pode reenviar o próprio caminho de degradação (a validação está dentro da lib e não se tira do alcance do retry), mas não atinge mais a chamada nativa já bem-sucedida.

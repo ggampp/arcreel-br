@@ -1,188 +1,188 @@
-# AI 视频生成工作空间
+# Espaço de trabalho de geração de vídeo com IA
 <!-- mode: drama -->
 
 ---
 
-## 重要总则
+## Regras gerais importantes
 
-以下规则适用于整个项目的所有操作：
+As regras abaixo se aplicam a **todas** as operações do projeto:
 
-### 视频规格
-- **视频比例**：由项目 `aspect_ratio` 配置决定，无需在 prompt 中指定
-- **单片段/场景时长**：由视频模型能力和项目 `default_duration` 配置决定
-  - storyboard / grid 模式：由项目 `default_duration` 决定
-  - reference_video 模式：由所选视频模型的 `supported_durations` 决定；subagent 运行时通过 `mcp__arcreel__get_video_capabilities` 工具自查真值
-- **图片分辨率**：1K
-- **视频分辨率**：1080p
-- **生成方式**：每个片段/场景独立生成，使用分镜图作为起始帧
+### Especificações de vídeo
+- **Proporção do vídeo**: definida por `aspect_ratio` do projeto; não é necessário especificar no prompt
+- **Duração por segmento/cena**: definida pelas capacidades do modelo de vídeo e por `default_duration` do projeto
+  - modos storyboard / grid: definidos por `default_duration` do projeto
+  - modo reference_video: definidos por `supported_durations` do modelo de vídeo escolhido; o subagent consulta o valor real em runtime via `mcp__arcreel__get_video_capabilities`
+- **Resolução de imagem**: 1K
+- **Resolução de vídeo**: 1080p
+- **Forma de geração**: cada segmento/cena é gerado de forma independente, usando a storyboard como frame inicial
 
-> **关于 extend 功能**：Veo 3.1 extend 功能仅用于延长单个片段/场景，
-> 每次固定 +7 秒，不适合用于串联不同镜头。不同片段/场景之间使用 ffmpeg 拼接。
+> **Sobre a função extend**: o extend do Veo 3.1 serve apenas para alongar um único segmento/cena,
+> +7 segundos fixos por vez, e **não** serve para encadear shots diferentes. Entre segmentos/cenas diferentes use concatenação com ffmpeg.
 
-### 音频规范
-- **BGM 自动禁止**：在视频 prompt 末尾统一追加"禁止出现：BGM、文字字幕、水印"
+### Normas de áudio
+- **BGM proibido automaticamente**: ao final do prompt de vídeo, acrescentar sempre «proibido: BGM, legendas de texto, marcas d'água»
 
-### 工具调用
+### Chamadas de ferramentas
 
-- **业务入队 / 文本生成 / 能力查询**：统一走 `mcp__arcreel__*` 系列 SDK in-process MCP tool（角色/场景/道具/分镜/视频/宫格/集脚本/规范化剧本/分集规划与重排/视频能力查询）。它们跑在 server 主进程，不受 sandbox 网络白名单约束，agent 直接以 tool 形式调用。
-- **编辑项目 JSON**：修改剧本（`scripts/*.json`）或角色/场景/道具（`project.json`）**一律走 `mcp__arcreel__*` 编辑工具**——剧本改字段用 `patch_episode_script`（batch-native：传 `{分镜id: {字段路径: 值}}` 映射，单次调用改多分镜 × 多字段，单条编辑写成长度 1 的 map；all-or-nothing 原子，任一编辑非法则整批不落盘、错误会指出出错的分镜 id 与字段（结构校验类错误按字段路径报告）；批量编辑前先 Read 该剧本确认现状），改分集标题用 `patch_episode_meta`，增/删/拆分镜用 `insert_segment` / `remove_segment` / `split_segment`，角色/场景/道具用 `patch_project`。**严禁**用 Write / Edit / Bash 直改这两类文件（已被 sandbox `denyWrite` 与 PreToolUse hook 双层拒绝）。**改 prompt 必重生**：用 `patch_episode_script` 改了某些分镜的 `image_prompt` / `video_prompt` 后，工具不会自动作废旧图/视频，必须紧接着调对应生成工具重新生成这些分镜，否则会留下「新 prompt + 旧画面」的陈旧。
-- **Bash 用途**：仅供通用排查与文件浏览（`ls / cat / jq / python / curl` 等），以及 `compose-video` skill 内还保留的 Python 脚本。
-- **敏感文件保护**：`.env` / `vertex_keys/` / `.system_config.json*` / `.arcreel.db*` / `.claude/settings.json` 由 sandbox profile（`filesystem.denyRead`）内核级拒绝读取，并由 PreToolUse 文件访问 hook 双重防御；代码文件（.py/.js/.ts/.tsx/.sh/.yaml/.yml/.toml）受运行时 hook 阻止写入。
+- **Fila de negócio / geração de texto / consulta de capacidades**: sempre via ferramentas MCP in-process `mcp__arcreel__*` (personagem/cena/prop/storyboard/vídeo/grid/script de episódio/script normalizado/planejamento e replanejamento de episódios/consulta de capacidades de vídeo). Rodam no processo principal do server, sem restrição da whitelist de rede do sandbox; o agent chama como tool.
+- **Edição de JSON do projeto**: alterar scripts (`scripts/*.json`) ou personagens/cenas/props (`project.json`) **sempre via ferramentas de edição `mcp__arcreel__*`** — campos do script com `patch_episode_script` (batch-native: mapa `{id_do_segmento: {caminho_do_campo: valor}}`, uma chamada altera vários segmentos × vários campos; edição unitária = mapa de tamanho 1; atômico all-or-nothing: qualquer edição inválida descarta o lote inteiro e o erro aponta segment id e campo; erros de validação estrutural reportam o caminho do campo; antes de edições em lote, faça Read do script para confirmar o estado atual), título do episódio com `patch_episode_meta`, inserir/remover/dividir segmentos com `insert_segment` / `remove_segment` / `split_segment`, personagens/cenas/props com `patch_project`. **Proibido** usar Write / Edit / Bash para alterar esses dois tipos de arquivo (bloqueados por sandbox `denyWrite` e hook PreToolUse). **Prompt alterado exige regeneração**: após mudar `image_prompt` / `video_prompt` de segmentos com `patch_episode_script`, a ferramenta **não** invalida imagem/vídeo antigos — chame em seguida a geração correspondente desses segmentos, senão fica «prompt novo + imagem antiga».
+- **Uso do Bash**: apenas diagnóstico e navegação de arquivos (`ls` / `cat` / `jq` / `python` / `curl` etc.), e scripts Python ainda presentes no skill `compose-video`.
+- **Proteção de arquivos sensíveis**: `.env` / `vertex_keys/` / `.system_config.json*` / `.arcreel.db*` / `.claude/settings.json` são bloqueados em nível de kernel pelo sandbox profile (`filesystem.denyRead`) e pelo hook PreToolUse de acesso a arquivos; arquivos de código (`.py`/`.js`/`.ts`/`.tsx`/`.sh`/`.yaml`/`.yml`/`.toml`) têm escrita bloqueada por hook em runtime.
 
-### 路径规范
+### Normas de caminho
 
-agent session 的当前工作目录（cwd）已绑定到当前项目根，**所有工具参数中的路径必须遵循以下规则**：
+O diretório de trabalho atual (cwd) da sessão do agent já está ligado à raiz do projeto atual. **Todos os caminhos em parâmetros de ferramentas devem seguir**:
 
-- **Read / Edit / Write / Glob / Grep**：`file_path` 使用**绝对路径**
-- **Bash 调用 skill 脚本**：使用**相对项目根 cwd** 的路径，例如：
-  - ✅ `source/episode_1.txt`、`drafts/episode_1/step1_normalized_script.json`、`scripts/episode_1.json`
-  - ❌ `projects/{项目名}/source/episode_1.txt`（双前缀，占位符替换或拼接出错就会落到 projects 根）
-- **严禁**在工具参数中出现 `projects/{...}/` 前缀；该前缀仅用于文档说明项目目录结构，**不可直接作为参数传给任何工具**
-- skill 脚本内部已加 cwd 校验，cwd 漂离当前项目目录时会直接拒绝执行
-- **关于 agent.md / SKILL.md 中的相对形式**：subagent 指引（如「读取 `project.json`」、「读取 `source/episode_{N}.txt`」）里出现的相对路径是**项目内位置说明**，并非可直接传给工具的 `file_path` 值。调用 Read/Edit/Write/Glob/Grep 时仍按本节规则用 session cwd 拼成绝对路径再传参
-
----
-
-## 内容模式
-
-本项目为**剧集动画模式**（drama）。剧本数据结构为 `scenes[]`，每个场景对应一段独立的视觉画面（含对话、动作、情绪）。
-
-> 生成模式（storyboard / grid / reference_video）通过 `project.json` 的 `generation_mode` 字段配置，与内容模式独立。详细规格见 `.claude/references/generation-modes.md`。
+- **Read / Edit / Write / Glob / Grep**: `file_path` com **caminho absoluto**
+- **Bash chamando scripts de skill**: caminhos **relativos à raiz do projeto (cwd)**, por exemplo:
+  - ✅ `source/episode_1.txt`, `drafts/episode_1/step1_normalized_script.json`, `scripts/episode_1.json`
+  - ❌ `projects/{nome_do_projeto}/source/episode_1.txt` (prefixo duplo; placeholder ou concatenação errada cai na raiz de projects)
+- **Proibido** aparecer o prefixo `projects/{...}/` em parâmetros de ferramentas; esse prefixo só documenta a estrutura de pastas e **não** deve ser passado a nenhuma ferramenta
+- Scripts de skill validam o cwd e recusam execução se o cwd não for a raiz do projeto atual
+- **Sobre formas relativas em agent.md / SKILL.md**: caminhos relativos nas instruções de subagent (ex.: «ler `project.json`», «ler `source/episode_{N}.txt`») são **localização dentro do projeto**, não valores de `file_path` prontos. Em Read/Edit/Write/Glob/Grep, monte o caminho absoluto a partir do cwd da sessão
 
 ---
 
-## 生成模式
+## Modo de conteúdo
 
-系统支持三种**生成模式**（`generation_mode`），通过 `project.json` 顶层字段 + 集级 `episodes[i].generation_mode` 指定：
+Este projeto é **modo animação de série** (`drama`). A estrutura de dados do script é `scenes[]`; cada cena corresponde a um quadro visual independente (com diálogo, ação e emoção).
 
-| generation_mode | 名称（UI） | 数据主结构 | 视觉参考来源 |
+> Os modos de geração (storyboard / grid / reference_video) são configurados pelo campo `generation_mode` em `project.json`, independentes do modo de conteúdo. Especificações detalhadas em `.claude/references/generation-modes.md`.
+
+---
+
+## Modos de geração
+
+O sistema suporta três **modos de geração** (`generation_mode`), via campo de topo em `project.json` + `episodes[i].generation_mode` por episódio:
+
+| generation_mode | Nome (UI) | Estrutura principal de dados | Fonte de referência visual |
 |---|---|---|---|
-| `storyboard`（默认） | 图生视频 | `segments[]` 或 `scenes[]` + 分镜图 | 每片段一张分镜图作起始帧 |
-| `grid` | 宫格生视频 | `segments[]` 或 `scenes[]` + 宫格分组 | 宫格图切块 |
-| `reference_video` | 参考生视频 | `video_units[]` | 角色/场景/道具 sheet 图作为参考 |
+| `storyboard` (padrão) | Imagem→vídeo | `segments[]` ou `scenes[]` + storyboard | Uma storyboard por segmento como frame inicial |
+| `grid` | Grid→vídeo | `segments[]` ou `scenes[]` + grupos de grid | Recortes da imagem de grid |
+| `reference_video` | Referência→vídeo | `video_units[]` | Sheets de personagem/cena/prop como referência |
 
-解析规则：`effective_mode(project, episode) = episode.generation_mode or project.generation_mode or "storyboard"`。
+Regra de resolução: `effective_mode(project, episode) = episode.generation_mode or project.generation_mode or "storyboard"`.
 
-> 完整模式矩阵与阶段分支详见 `.claude/references/generation-modes.md`。
+> Matriz completa de modos e ramificações de etapas em `.claude/references/generation-modes.md`.
 
 ---
 
-## 项目结构
+## Estrutura do projeto
 
-- `projects/{项目名}` - 视频项目的工作空间
-- `lib/` - 共享 Python 库（多供应商图像 / 视频 / 文本生成抽象层、项目管理）
-- `agent_runtime_profile/.claude/skills/` - 可用的 skills
+- `projects/{nome_do_projeto}` — workspace do projeto de vídeo
+- `lib/` — biblioteca Python compartilhada (camada de abstração multi-provedor de imagem / vídeo / texto, gestão de projetos)
+- `agent_runtime_profile/.claude/skills/` — skills disponíveis
 
-## 架构：编排 Skill + 聚焦 Subagent
+## Arquitetura: Skill de orquestração + Subagents focados
 
 ```
-主 Agent（编排层 — 极轻量）
-  │  只持有：项目状态摘要 + 用户对话历史
-  │  职责：状态检测、流程决策、用户确认、dispatch subagent
+Agent principal (camada de orquestração — extremamente leve)
+  │  Mantém apenas: resumo do estado do projeto + histórico de diálogo
+  │  Responsabilidades: detecção de estado, decisões de fluxo, confirmação do usuário, dispatch de subagent
   │
-  ├─ dispatch → analyze-assets               全局角色/场景/道具提取
-  ├─ dispatch → split-narration-segments     说书模式片段拆分
-  ├─ dispatch → normalize-drama-script       剧集模式规范化剧本
-  ├─ dispatch → split-reference-video-units  参考模式 video_unit 拆分
-  ├─ dispatch → create-episode-script        JSON 剧本生成（预加载 generate-script skill）
-  └─ dispatch → generate-assets              资产生成（角色/场景/道具/分镜/视频）
+  ├─ dispatch → analyze-assets               extração global de personagem/cena/prop
+  ├─ dispatch → split-narration-segments     divisão de segmentos no modo narration
+  ├─ dispatch → normalize-drama-script       normalização de script no modo drama
+  ├─ dispatch → split-reference-video-units  divisão de video_unit no modo reference
+  ├─ dispatch → create-episode-script        geração de script JSON (pré-carrega skill generate-script)
+  └─ dispatch → generate-assets              geração de ativos (personagem/cena/prop/storyboard/vídeo)
 ```
 
-### Skill/Agent 边界原则
+### Princípios de fronteira Skill/Agent
 
-| 类型 | 用途 | 示例 |
+| Tipo | Uso | Exemplo |
 |------|------|------|
-| **Subagent（聚焦任务）** | 需要大量上下文或推理分析 → 保护主 agent context | analyze-assets、split-narration-segments |
-| **Skill（在 subagent 内调用）** | 确定性脚本执行 → API 调用、文件生成 | generate-script、generate-assets |
-| **主 Agent 直接操作** | 仅限轻量操作 | 读项目状态、简单文件操作、用户交互 |
+| **Subagent (tarefa focada)** | Precisa de muito contexto ou raciocínio → protege o context do agent principal | analyze-assets, split-narration-segments |
+| **Skill (chamado dentro do subagent)** | Execução determinística de scripts → chamadas de API, geração de arquivos | generate-script, generate-assets |
+| **Operação direta do agent principal** | Apenas operações leves | ler estado do projeto, ops simples de arquivo, interação com o usuário |
 
-### 关键约束
+### Restrições-chave
 
-- **Subagent 不能 spawn subagent**：多步工作流只能通过主 agent 链式 dispatch
-- **小说原文不进入主 agent**：由 subagent 自行读取，主 agent 只传文件路径
-- **每个 subagent 一个聚焦任务**：完成即返回，不在内部做多步用户确认
+- **Subagent não pode spawn de subagent**: fluxos multi-etapa só via dispatch em cadeia do agent principal
+- **Texto original do romance não entra no agent principal**: o subagent lê sozinho; o agent principal só passa caminhos de arquivo
+- **Um subagent = uma tarefa focada**: conclui e retorna; não faz confirmações multi-etapa com o usuário por dentro
 
-### 职责边界
+### Limites de responsabilidade
 
-- **禁止编写代码**：不得创建或修改任何代码文件（.py/.js/.sh 等），数据处理走 `mcp__arcreel__*` 工具或 `manage-project` / `compose-video` 的现有脚本
-- **代码 bug 上报**：如果明确判断 MCP 工具或 skill 脚本出现的是代码 bug（而非参数或环境问题），向用户报告错误并建议反馈给开发者
+- **Proibido escrever código**: não criar nem modificar arquivos de código (`.py`/`.js`/`.sh` etc.); processamento de dados via ferramentas `mcp__arcreel__*` ou scripts existentes de `manage-project` / `compose-video`
+- **Reportar bug de código**: se ficar claro que o erro do MCP tool ou do script do skill é bug de código (não de parâmetro ou ambiente), reportar ao usuário e sugerir feedback aos desenvolvedores
 
-## 可用 Skills
+## Skills disponíveis
 
-| Skill | 触发命令 | 功能 |
+| Skill | Comando de gatilho | Função |
 |-------|---------|------|
-| manga-workflow | `/manga-workflow` | 编排 skill：状态检测 + subagent dispatch + 用户确认 |
-| manage-project | — | 项目管理工具集：角色/场景/道具批量写入、项目 settings 与概述编辑 |
-| generate-script | — | 调用项目配置的文本模型生成 JSON 剧本（由 subagent 调用） |
-| generate-assets | `/generate-assets` | 统一资产生成：可指定 `type=character\|scene\|prop`，省略则三类并行 |
-| generate-storyboard | `/generate-storyboard` | 生成分镜图片（storyboard 模式） |
-| generate-grid | `/generate-grid` | 生成宫格分镜图（grid 模式：按 segment_break 分组的链式宫格） |
-| generate-video | `/generate-video` | 生成视频 |
-| compose-video | `/compose-video` | 视频后期合成（BGM、片头片尾、多集拼接，ffmpeg） |
+| manga-workflow | `/manga-workflow` | Skill de orquestração: detecção de estado + dispatch de subagent + confirmação do usuário |
+| manage-project | — | Kit de gestão de projeto: escrita em lote de personagem/cena/prop, settings e overview |
+| generate-script | — | Gera script JSON com o modelo de texto do projeto (chamado por subagent) |
+| generate-assets | `/generate-assets` | Geração unificada de ativos: pode especificar `type=character\|scene\|prop`; omitir = três classes em paralelo |
+| generate-storyboard | `/generate-storyboard` | Gera imagens de storyboard (modo storyboard) |
+| generate-grid | `/generate-grid` | Gera storyboard em grid (modo grid: grids encadeados agrupados por segment_break) |
+| generate-video | `/generate-video` | Gera vídeo |
+| compose-video | `/compose-video` | Pós-produção de vídeo (BGM, intro/outro, concatenação multi-episódio, ffmpeg) |
 
-## 快速开始
+## Início rápido
 
-新用户请使用 `/manga-workflow` 开始完整的视频创作流程。
+Novos usuários devem usar `/manga-workflow` para o fluxo completo de criação de vídeo.
 
-## 工作流程概览
+## Visão geral do fluxo de trabalho
 
-`/manga-workflow` 编排 skill 按以下阶段自动推进（每个阶段完成后等待用户确认）：
+O skill de orquestração `/manga-workflow` avança automaticamente pelas etapas abaixo (após cada etapa, aguarda confirmação do usuário):
 
-1. **项目设置**：创建项目（创建时确定 `content_mode`，之后不可变）、选择 `generation_mode`、上传小说、生成项目概述
-2. **全局角色/场景/道具提取** → dispatch `analyze-assets` subagent
-3. **分集规划** → 主 agent 调用 `mcp__arcreel__plan_episodes` 服务端工具规划一批集（账本+派生集文件由工具维护）+ 批级审阅，意见经 `mcp__arcreel__replan_episodes` 一次性重排。用户表达常驻分集偏好（如按章节对齐切分）时，须经 `plan_episodes` 的 `instructions` 传入，并在规划完成前**每一批调用都重复带上**（偏好不持久化）
-4. **单集预处理** → 按 `effective_mode` × `content_mode` 三分支选（中间文件统一位于 `drafts/episode_{N}/`）：
-   - reference_video（任一 content_mode）→ `split-reference-video-units`（产出 `step1_reference_units.md`）
-   - storyboard / grid + narration → `split-narration-segments`（产出 `step1_segments.json`）
-   - storyboard / grid + drama → `normalize-drama-script`（产出结构化内容 `step1_normalized_script.json`）
-5. **JSON 剧本生成** → dispatch `create-episode-script` subagent；中间文件被修改/重拆后必须重新执行本阶段
-6. **资产设计（character/scene/prop 三类并行）** → dispatch `generate-assets` subagent
-7. **分镜图生成**：仅 `storyboard` / `grid` 模式；`reference_video` 跳过 → dispatch `generate-assets` subagent
-8. **视频生成** → dispatch `generate-assets` subagent（脚本自动按 video_units/segments/scenes 分派）
+1. **Configuração do projeto**: criar projeto (define `content_mode` na criação, imutável depois), escolher `generation_mode`, enviar romance, gerar overview do projeto
+2. **Extração global de personagem/cena/prop** → dispatch do subagent `analyze-assets`
+3. **Planejamento de episódios** → agent principal chama a ferramenta de servidor `mcp__arcreel__plan_episodes` para planejar um lote de episódios (ledger + arquivos derivados mantidos pela ferramenta) + revisão por lote; feedback via `mcp__arcreel__replan_episodes` para reordenar de uma vez. Preferências permanentes de divisão (ex.: alinhar por capítulos) devem ir em `instructions` de `plan_episodes` e ser **repetidas em cada chamada de lote** até o fim do planejamento (preferências não são persistidas)
+4. **Pré-processamento do episódio** → três ramos por `effective_mode` × `content_mode` (arquivos intermediários em `drafts/episode_{N}/`):
+   - reference_video (qualquer content_mode) → `split-reference-video-units` (produz `step1_reference_units.md`)
+   - storyboard / grid + narration → `split-narration-segments` (produz `step1_segments.json`)
+   - storyboard / grid + drama → `normalize-drama-script` (produz conteúdo estruturado `step1_normalized_script.json`)
+5. **Geração de script JSON** → dispatch do subagent `create-episode-script`; se o arquivo intermediário for modificado/redividido, **reexecutar** esta etapa
+6. **Design de ativos (character/scene/prop em paralelo)** → dispatch do subagent `generate-assets`
+7. **Geração de storyboard**: só modos `storyboard` / `grid`; `reference_video` pula → dispatch do subagent `generate-assets`
+8. **Geração de vídeo** → dispatch do subagent `generate-assets` (o script despacha automaticamente por video_units/segments/scenes)
 
-工作流支持**灵活入口**：状态检测自动定位到第一个未完成的阶段，支持中断后恢复。
-视频生成完成后，用户可在 Web 端导出为剪映草稿。
+O fluxo tem **entrada flexível**: a detecção de estado localiza a primeira etapa incompleta e suporta retomada após interrupção.
+Após a geração de vídeo, o usuário pode exportar rascunho CapCut/Jianying no Web.
 
-## 关键原则
+## Princípios-chave
 
-- **角色一致性**：每个场景都使用分镜图作为起始帧，确保角色形象一致
-- **场景/道具一致性**：标志性环境和关键道具通过 `scenes` / `props` 机制固化，确保跨场景视觉一致
-- **分镜连贯性**：使用 segment_break 标记场景切换点，后期可添加转场效果
-- **质量控制**：每个场景生成后检查质量，可单独重新生成不满意的场景
+- **Consistência de personagem**: cada cena usa a storyboard como frame inicial, mantendo a aparência do personagem
+- **Consistência de cena/prop**: ambientes e props marcantes são fixados via mecanismo `scenes` / `props`, garantindo consistência visual entre cenas
+- **Continuidade de storyboard**: use `segment_break` para marcar pontos de troca de cena; na pós-produção dá para adicionar transições
+- **Controle de qualidade**: após cada cena, revisar qualidade; regenerar individualmente cenas insatisfatórias
 
-## 项目目录结构
+## Estrutura de diretórios do projeto
 
-> 下面的目录树仅为说明用途，agent session 的 cwd 已在项目根。**Bash 调用 skill 脚本**时使用相对 cwd 的路径（如 `source/`、`scripts/`）；**Read / Edit / Write / Glob / Grep** 的 `file_path` 仍按上文"路径规范"要求使用**绝对路径**。无论哪种工具都不可带 `projects/{项目名}/` 前缀。
+> A árvore abaixo é só ilustrativa; o cwd da sessão já está na raiz do projeto. **Bash chamando scripts de skill** usa caminhos relativos ao cwd (ex.: `source/`, `scripts/`); **Read / Edit / Write / Glob / Grep** usam **caminho absoluto** conforme «Normas de caminho». Em nenhuma ferramenta use o prefixo `projects/{nome_do_projeto}/`.
 
 ```text
-projects/{项目名}/      # ← session cwd 已在此，下面均为 cwd 内的相对路径
-├── project.json       # 项目元数据（角色、场景、道具、剧集、风格）
-├── source/            # 原始小说内容
-├── scripts/           # 分镜剧本 (JSON)
-├── drafts/            # Step 1 中间文件
-├── characters/        # 角色设计图
-├── scenes/            # 场景设计图
-├── props/             # 道具设计图
-├── storyboards/       # 分镜图片（storyboard / grid 模式）
-├── grids/             # 宫格图（grid 模式）
-├── videos/            # 生成的视频片段（storyboard / grid 模式）
-├── reference_videos/  # 生成的 video_unit（reference_video 模式）
-├── thumbnails/        # 首帧缩略图
-└── output/            # 最终输出
+projects/{nome_do_projeto}/      # ← cwd da sessão já está aqui; abaixo são relativos ao cwd
+├── project.json       # metadados (personagens, cenas, props, episódios, estilo)
+├── source/            # conteúdo original do romance
+├── scripts/           # scripts de storyboard (JSON)
+├── drafts/            # arquivos intermediários do Step 1
+├── characters/        # artes de personagem
+├── scenes/            # artes de cena
+├── props/             # artes de prop
+├── storyboards/       # imagens de storyboard (modos storyboard / grid)
+├── grids/             # imagens de grid (modo grid)
+├── videos/            # clipes de vídeo gerados (modos storyboard / grid)
+├── reference_videos/  # video_units gerados (modo reference_video)
+├── thumbnails/        # thumbnails do primeiro frame
+└── output/            # saída final
 ```
 
-### project.json 核心字段
+### Campos principais de project.json
 
-- `schema_version`：项目数据格式版本（当前 1）
-- `title`、`content_mode`（`narration`/`drama`）、`generation_mode`（`storyboard`/`grid`/`reference_video`）、`style`、`style_description`
-- `overview`：项目概述（synopsis、genre、theme、world_setting）
-- `episodes`：分集账本（单一真相源）：episode、title、script_file、可选 `generation_mode` 覆盖，以及账本字段 `source_range`（原文范围）/ `hook`（集尾钩子）/ `outline`（drama 分集大纲）/ `ledger_status`（planned/consumed/stale/unanchored）；顶层 `planning_cursor` 标记下一批规划起点。`source/episode_N.txt` 是账本的派生物，由规划工具维护，不要手工编辑或重命名
-- `characters`：角色完整定义（description、voice_style、character_sheet）
-- `scenes`：场景完整定义（description、scene_sheet）
-- `props`：道具完整定义（description、prop_sheet）
+- `schema_version`: versão do formato de dados do projeto (atual 1)
+- `title`, `content_mode` (`narration`/`drama`), `generation_mode` (`storyboard`/`grid`/`reference_video`), `style`, `style_description`
+- `overview`: overview do projeto (synopsis, genre, theme, world_setting)
+- `episodes`: ledger de episódios (fonte única de verdade): episode, title, script_file, `generation_mode` opcional de override, e campos de ledger `source_range` (faixa do original) / `hook` (gancho do fim do episódio) / `outline` (outline de episódio em drama) / `ledger_status` (planned/consumed/stale/unanchored); o topo `planning_cursor` marca o início do próximo lote de planejamento. `source/episode_N.txt` é derivado do ledger, mantido pelas ferramentas de planejamento — **não** editar ou renomear à mão
+- `characters`: definição completa do personagem (description, voice_style, character_sheet)
+- `scenes`: definição completa da cena (description, scene_sheet)
+- `props`: definição completa do prop (description, prop_sheet)
 
-### 数据分层原则
+### Princípios de camadas de dados
 
-- 角色/场景/道具的完整定义**只存储在 project.json**，剧本中仅引用名称
-- `scenes_count`、`status`、`progress` 等统计字段由 StatusCalculator **读时计算**，不存储
-- 剧集元数据（episode/title/script_file）在剧本保存时**写时同步**
+- Definições completas de personagem/cena/prop **só em project.json**; o script só referencia nomes
+- Campos estatísticos (`scenes_count`, `status`, `progress` etc.) são **calculados na leitura** por StatusCalculator, não armazenados
+- Metadados de episódio (episode/title/script_file) são **sincronizados na escrita** ao salvar o script

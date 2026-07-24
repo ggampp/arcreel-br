@@ -1,36 +1,36 @@
 ## Why
 
-当前项目导出功能存在两个核心体验问题：
+A exportação de projeto atual tem dois problemas centrais de experiência:
 
-1. **下载阻塞**：导出使用前端 fetch + Blob 方式下载 ZIP，整个文件必须在内存中完成接收后才触发保存。期间用户无法看到进度，也不能切换页面（切走后 fetch 被中断）。对于包含大量分镜图/视频的项目，ZIP 可达数百 MB，体验极差。
-2. **全量导出冗余**：每次导出都打包项目的全部内容（含 `versions/` 目录下的所有历史版本），数据量远超用户实际需要。多数场景下用户只需要当前版本的资源，不需要历史版本文件。
+1. **Download bloqueante**: a exportação usa fetch + Blob no frontend para baixar o ZIP; o arquivo inteiro precisa ser recebido na memória antes de disparar o save. Enquanto isso o usuário não vê progresso e não pode trocar de página (ao sair o fetch é interrompido). Em projetos com muitos storyboards/vídeos o ZIP pode chegar a centenas de MB — experiência péssima.
+2. **Exportação full redundante**: cada exportação empacota todo o conteúdo do projeto (incluindo todo o histórico em `versions/`), bem além do que o usuário costuma precisar. Na maioria dos casos basta a versão atual dos recursos, sem os arquivos de versões históricas.
 
 ## What Changes
 
-- **浏览器原生下载**：将导出 API 的调用方式从 fetch → Blob → `<a>.click()` 改为直接让浏览器打开带认证的下载链接。浏览器原生下载支持进度显示、可暂停/恢复、不阻塞页面切换。
-- **下载 URL 安全认证**：引入短时效一次性下载 token 机制，避免将长期 JWT 暴露在 URL query string 中。
-- **导出范围选项**：在导出交互中新增选择——"导出全部" 与 "仅当前版本"：
-  - **导出全部**：行为与现有逻辑一致，打包整个项目目录（含 `versions/`）。
-  - **仅当前版本**：跳过 `versions/` 目录下的历史文件，仅保留当前使用的资源。同时在 `arcreel-export.json` 清单中记录 `scope: "current"` 标记，并在 `versions.json` 中仅保留 current version 条目作为元数据（保留 prompt 等生成信息），以便导入时恢复上下文。
+- **Download nativo do navegador**: trocar a forma de chamar a API de exportação de fetch → Blob → `<a>.click()` para abrir diretamente um link de download autenticado no navegador. O download nativo mostra progresso, permite pausar/retomar e não bloqueia a troca de página.
+- **Autenticação segura da URL de download**: introduzir um mecanismo de download token de curta duração (uso único na prática), evitando expor o JWT de longa duração no query string da URL.
+- **Opções de escopo de exportação**: na interação de exportação, adicionar a escolha — "Exportar tudo" e "Apenas versão atual":
+  - **Exportar tudo**: igual à lógica existente, empacota o diretório inteiro do projeto (incluindo `versions/`).
+  - **Apenas versão atual**: ignora arquivos históricos sob `versions/`, mantendo só os recursos em uso. No manifesto `arcreel-export.json` registra `scope: "current"` e em `versions.json` mantém só as entradas da current version como metadados (preservando prompt e outras informações de geração), para restaurar contexto na importação.
 
 ## Capabilities
 
 ### New Capabilities
-- `export-download-token`: 短时效一次性下载 token 的签发与验证，用于浏览器原生下载的安全认证
-- `export-scope-selection`: 导出范围选择（全部 / 仅当前版本），包括后端打包逻辑和前端选项 UI
+- `export-download-token`: emissão e validação de download token de curta duração para autenticação segura do download nativo do navegador
+- `export-scope-selection`: seleção de escopo de exportação (tudo / apenas versão atual), incluindo lógica de empacotamento no backend e UI de opções no frontend
 
 ### Modified Capabilities
-（无已有 spec 需要修改）
+(nenhum spec existente a modificar)
 
 ## Impact
 
-- **后端**：
-  - `server/auth.py` — 新增下载 token 签发/验证逻辑
-  - `server/app.py` — 认证中间件需识别下载 token
-  - `server/routers/projects.py` — 导出端点支持 scope 参数 + 下载 token 验证
-  - `server/services/project_archive.py` — 打包逻辑支持 scope 过滤
-- **前端**：
-  - `frontend/src/api.ts` — 导出 API 改为获取下载 URL 而非 fetch Blob
-  - `frontend/src/components/layout/GlobalHeader.tsx` — 导出按钮增加范围选择交互
-- **API 变更**：导出端点增加 `scope` query param，新增下载 token 端点
-- **兼容性**：导入逻辑已支持无 `versions/` 目录的 ZIP，`scope: "current"` 的导出包可正常导入
+- **Backend**:
+  - `server/auth.py` — lógica de emissão/validação de download token
+  - `server/app.py` — middleware de autenticação precisa reconhecer download token
+  - `server/routers/projects.py` — endpoint de exportação com parâmetro scope + validação de download token
+  - `server/services/project_archive.py` — lógica de empacotamento com filtro de scope
+- **Frontend**:
+  - `frontend/src/api.ts` — API de exportação passa a obter URL de download em vez de fetch Blob
+  - `frontend/src/components/layout/GlobalHeader.tsx` — botão de exportar com interação de seleção de escopo
+- **Mudanças de API**: endpoint de exportação ganha query param `scope`; novo endpoint de download token
+- **Compatibilidade**: a lógica de importação já aceita ZIP sem diretório `versions/`; pacotes com `scope: "current"` importam normalmente

@@ -1,38 +1,38 @@
 ---
 name: manga-workflow
-description: 广告/短片项目的工作流入口。当用户提到做视频、继续项目、查看进度时必须使用此 skill。触发场景包括但不限于："帮我做一条带货视频"、"继续"、"下一步"、"看看项目进度"等。即使用户只说了简短的"继续"或"下一步"，只要当前上下文涉及视频项目，就应该触发。不要用于单个资产生成（如只重画某张分镜图或只重新生成某个角色设计图——那些有专门的 skill）。
+description: Entrada de fluxo de trabalho de projetos anúncio/curta. Use este skill sempre que o usuário falar em fazer vídeo, continuar o projeto ou ver progresso. Gatilhos incluem, sem se limitar a: "me ajuda a fazer um vídeo de venda", "continuar", "próximo passo", "ver o progresso do projeto" etc. Mesmo se o usuário só disser "continuar" ou "próximo passo", se o contexto atual for de projeto de vídeo, dispare. Não use para geração isolada de ativo (ex.: só redesenhar uma storyboard ou só regenerar a arte de um personagem — isso tem skill próprio).
 ---
 <!-- mode: ad -->
 
-# 广告/短片工作流
+# Fluxo de trabalho anúncio/curta
 
-本项目为**广告/短片模式**（ad）：单视频、恒单集（剧本即 `scripts/episode_1.json`）、按 `target_duration` 规划镜头。**没有分集概念**——不要做分集规划、拆分或小说源文件处理。
+Este projeto é **modo anúncio/curta** (`ad`): vídeo único, sempre um episódio (o script é `scripts/episode_1.json`), shots planejados por `target_duration`. **Não há conceito de divisão em episódios** — não faça planejamento de episódios, divisão nem processamento de arquivo-fonte de romance.
 
-## 工作流步骤
+## Passos do fluxo
 
-1. **确认项目状态**：Read `project.json`，确认 `title`、`content_mode`（固定 `ad`）、`target_duration`（目标总时长，秒）、`brief`（创作诉求，可为空）、`generation_mode`（`storyboard` / `reference_video`，`grid` 不开放）、`products`（产品资产）
-2. **创作输入**：带货项目而产品未登记或缺原图（`reference_images` 为空）时，引导用户在 WebUI 初始化页或产品资产页上传产品图——原图是产品保真的验收锚点，agent 不能代传图片；产品描述/品牌可经 `mcp__arcreel__patch_project` 代写。`brief` 为空时引导用户补充创作诉求（产品/主题、目标人群、期望风格——卖点留给下一步起草，不在此重复索要），同样经 `patch_project` 写入
-3. **起草卖点（selling_points）**：产品已登记但 `selling_points` 为空时，先从 `brief`、产品描述与产品原图（`reference_images`）中起草卖点列表，与用户确认后经 `mcp__arcreel__patch_project` 写入 products 表——剧本生成会把卖点注入带货框架的 selling_point/demo 段
-4. **资产定义与设计图**：角色/场景/道具定义写入 `project.json` 后 dispatch `generate-assets` subagent 生成设计图；产品 sheet 在产品资产页生成
-5. **一键生成剧本**：调 `mcp__arcreel__generate_episode_script({"episode": 1})`。ad 不需要 step1 中间文件，prompt 直接来自 brief + 产品信息 + 审定的带货八段框架配比表（按 `target_duration` 选档）；`products` 为空时自动分流为通用短片脚本。生成后剧本总时长偏离 `target_duration` 过大只会记日志提醒，不阻塞
-6. **sheet 过目（软门禁）**：产品生成了 `product_sheet` 时，分镜开工前（参考直出路径为首次视频生成前——sheet 直接进 unit 参考集）先请用户到产品资产页确认 sheet 与真品一致（不一致就重新生成 sheet），确认后才继续；无 sheet（仅原图）时直接开工。这是工作流约定，没有系统状态强制
-7. **镜头编排与生成**：每镜头口播文案/时长/section 可经 `patch_episode_script` 调整；镜头**顺序**调整只在 WebUI 剧本页提供（agent 侧没有重排工具，用户要求调顺序时引导其到剧本页操作，不要用逐字段互换内容模拟）。两条生成路径：
-   - **storyboard 路径**：用 `generate-storyboard` / `generate-video` 逐镜头出图出视频；分镜生成后引导用户审核产品形象，不合格的重生成分镜，在产生视频费用前拦截
-   - **reference_video 路径（参考直出）**：直接调 `mcp__arcreel__generate_video_episode` 一键直出——工具自动把连续镜头派生分组为 video_unit（每 unit ≤4 镜头、总长受供应商上限约束）、把产品参考与资产 sheet 注入各 unit 并入队生成，跳过分镜步骤。镜头编辑后再次调用即自动重新派生，未变化的 unit 不重复生成
+1. **Confirmar estado do projeto**: Read `project.json`, confirme `title`, `content_mode` (fixo `ad`), `target_duration` (duração total alvo, segundos), `brief` (briefing criativo, pode ser vazio), `generation_mode` (`storyboard` / `reference_video`; `grid` não disponível), `products` (ativos de produto)
+2. **Entrada criativa**: em projeto de venda, se o produto não estiver cadastrado ou faltar original (`reference_images` vazio), oriente o usuário a enviar a imagem do produto na página de inicialização do WebUI ou na página de ativos de produto — a original é o âncora de fidelidade do produto; o agent **não** pode enviar imagem no lugar do usuário; descrição/marca do produto podem ser escritas via `mcp__arcreel__patch_project`. Se `brief` estiver vazio, oriente o usuário a completar o briefing criativo (produto/tema, público-alvo, estilo desejado — selling points ficam para o próximo passo, não peça de novo aqui) e grave também via `patch_project`
+3. **Redigir selling points**: se o produto estiver cadastrado mas `selling_points` vazio, redija a lista de selling points a partir de `brief`, descrição do produto e originais (`reference_images`); confirme com o usuário e grave na tabela products via `mcp__arcreel__patch_project` — a geração do script injeta selling points nas seções selling_point/demo do framework de venda
+4. **Definição de ativos e artes**: após gravar definições de personagem/cena/prop em `project.json`, dispatch do subagent `generate-assets` para as artes; product sheet é gerado na página de ativos de produto
+5. **Gerar script de uma vez**: chame `mcp__arcreel__generate_episode_script({"episode": 1})`. ad não precisa de intermediário step1; o prompt vem direto de brief + info de produto + tabela de proporção do framework de oito seções de venda aprovado (dimensionada por `target_duration`); com `products` vazio desvia automaticamente para script de curta genérico. Após gerar, desvio grande da duração total em relação a `target_duration` só gera log de aviso, não bloqueia
+6. **Revisão do sheet (gate soft)**: se o produto tiver `product_sheet`, antes de iniciar storyboard (no caminho saída direta por referência: antes da primeira geração de vídeo — o sheet entra direto no conjunto de referência da unit) peça ao usuário confirmar na página de ativos de produto que o sheet bate com o produto real (se não, regenerar o sheet); só continue após confirmação; sem sheet (só original), inicie direto. Isso é convenção de fluxo, sem força de máquina de estados do sistema
+7. **Orquestração e geração de shots**: copy de locução / duração / section de cada shot podem ser ajustadas via `patch_episode_script`; **ordem** dos shots só é reordenável na página de script do WebUI (não há ferramenta de reordenação no lado do agent — se o usuário pedir trocar ordem, oriente à página de script; não simule reordenação trocando conteúdo campo a campo). Dois caminhos de geração:
+   - **Caminho storyboard**: use `generate-storyboard` / `generate-video` shot a shot para imagem e vídeo; após o storyboard, oriente revisão da imagem do produto e regenere o que falhar — interceptar **antes** de gastar com vídeo
+   - **Caminho reference_video (saída direta por referência)**: chame direto `mcp__arcreel__generate_video_episode` para saída de uma vez — a ferramenta agrupa automaticamente shots consecutivos em video_units (cada unit ≤4 shots, duração total limitada pelo teto do provedor), injeta referência de produto e sheets de ativos em cada unit e enfileira a geração, pulando o passo de storyboard. Após editar shots, chamar de novo rederiva automaticamente; units inalterados não regeneram
 
-   产品镜头（`products_in_shot` 非空）的分镜与视频生成会自动注入产品参考并附高保真指令，prompt 不必复述产品外观
+   Shots de produto (`products_in_shot` não vazio) recebem automaticamente referência de produto e instrução de alta fidelidade no storyboard e no vídeo; o prompt não precisa repetir a aparência do produto
 
-8. **导出剪映草稿**：视频齐全后引导用户在 Web 端导出剪映草稿（视频轨 + 口播文案字幕轨，字幕在竖屏 safe-zone 内），打开剪映即完整时间线，照口播文案配音后成片。in-app 成片（compose-video）对 ad 不适用——直接走草稿出口
+8. **Export de rascunho CapCut/Jianying**: com o vídeo completo, oriente o usuário a exportar o rascunho CapCut/Jianying no Web (trilha de vídeo + trilha de legendas da copy de locução, legendas na safe-zone vertical); abrir no CapCut/Jianying já dá a timeline completa — duble pela copy de locução e feche o filme. Compose in-app (compose-video) **não** se aplica a ad — saia direto pelo rascunho
 
-## 通用短片（无产品）
+## Curta genérico (sem produto)
 
-`products` 为空即通用短片，剧本生成自动分流通用 prompt。带货还是通用看**用户诉求**：用户要推某个产品而产品未登记时走步骤 2 的上传引导（剧本生成前给齐产品），诉求不涉及具体产品才按通用短片引导。引导差异：跳过产品相关环节——步骤 2 的产品上传引导、步骤 3 卖点起草、步骤 6 sheet 过目，不向用户索要产品信息；`brief` 是唯一创作输入，引导用户写充实（主题、情绪基调、画面风格、叙事节奏）再生成剧本；角色/场景/道具资产照常可用。
+`products` vazio = curta genérico; a geração de script desvia automaticamente para o prompt genérico. Venda vs genérico depende da **intenção do usuário**: se quer promover um produto ainda não cadastrado, siga a orientação de upload do passo 2 (completar o produto **antes** do script); só se a intenção não envolve produto concreto siga como curta genérico. Diferenças de orientação: pule os passos ligados a produto — upload do passo 2, redação de selling points do passo 3, revisão de sheet do passo 6; não peça informações de produto ao usuário; `brief` é a única entrada criativa — oriente o usuário a enriquecer (tema, tom emocional, estilo visual, ritmo narrativo) antes de gerar o script; ativos de personagem/cena/prop continuam disponíveis.
 
-## 路径中途切换
+## Troca de caminho no meio
 
-用户把 `generation_mode` 在 storyboard ↔ reference_video 之间切换后，先检查既有镜头时长是否符合新路径约束（storyboard 须取视频模型 `supported_durations` 成员，可经 `mcp__arcreel__get_video_capabilities` 自查；reference 须为 1-15 秒整数）。不符合时**主动**列出越界镜头并建议调整值，经 `patch_episode_script` 修正后再生成——不要直接入队让执行层报错。
+Se o usuário trocar `generation_mode` entre storyboard ↔ reference_video, primeiro verifique se a duração dos shots existentes respeita as restrições do novo caminho (storyboard exige membros de `supported_durations` do modelo de vídeo — consulte via `mcp__arcreel__get_video_capabilities`; reference exige inteiro 1–15 s). Se não respeitar, **liste proativamente** os shots fora da faixa, sugira valores de ajuste, corrija com `patch_episode_script` e só então gere — não enfileire direto e deixe a camada de execução falhar.
 
-## 边界
+## Fronteiras
 
-- 剧本骨架唯一：`shots[]` 不随 `generation_mode` 更换；reference_video 路径下单镜头时长为 1-15 秒自由整数，storyboard 路径取视频模型 `supported_durations` 成员
-- reference_video 路径的分组索引（剧本 `reference_units` 字段）由工具派生维护，不要手工编辑；shots 才是内容唯一真相
+- Esqueleto do script é único: `shots[]` não muda com `generation_mode`; no caminho reference_video a duração por shot é inteiro livre 1–15 s; no caminho storyboard toma membros de `supported_durations` do modelo de vídeo
+- O índice de agrupamento do caminho reference_video (campo `reference_units` do script) é mantido pelas ferramentas; não edite à mão; shots são a única fonte de verdade de conteúdo

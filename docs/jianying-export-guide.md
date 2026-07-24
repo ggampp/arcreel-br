@@ -1,55 +1,55 @@
-# 剪映草稿导出指南
+# Guia de exportação de rascunho CapCut/Jianying
 
-将 ArcReel 已生成的视频片段按集导出为剪映（JianYing）草稿文件，在剪映桌面版中直接打开并进行二次编辑——调整节奏、添加字幕、转场、配音等。
+Exporte os clipes de vídeo já gerados no ArcReel, por episódio, como rascunho CapCut/Jianying, abra no CapCut/Jianying desktop e faça edição secundária — ajustar ritmo, legendas, transições, narração etc.
 
-## 前置条件
+## Pré-requisitos
 
-- 已在 ArcReel 中完成至少一集的视频片段生成
-- 本地已安装 **剪映桌面版**（5.x 或 6+）
+- Pelo menos um episódio com clipes de vídeo gerados no ArcReel
+- **CapCut/Jianying desktop** instalado localmente (5.x ou 6+)
 
-## 操作步骤
+## Passos
 
-### 1. 找到剪映草稿目录
+### 1. Localizar o diretório de rascunhos CapCut/Jianying
 
-导出前需要知道本地剪映草稿的存放路径。
+Antes de exportar, você precisa do caminho local dos rascunhos CapCut/Jianying.
 
-**macOS：**
+**macOS:**
 ```
-/Users/<用户名>/Movies/JianyingPro/User Data/Projects/com.lveditor.draft
-```
-
-**Windows：**
-```
-C:\Users\<用户名>\AppData\Local\JianyingPro\User Data\Projects\com.lveditor.draft
+/Users/<usuário>/Movies/JianyingPro/User Data/Projects/com.lveditor.draft
 ```
 
-> **提示**：可在剪映设置中查看"草稿路径"的位置。如果你修改过默认路径，请使用实际的草稿目录。
+**Windows:**
+```
+C:\Users\<usuário>\AppData\Local\JianyingPro\User Data\Projects\com.lveditor.draft
+```
 
-### 2. 在 ArcReel 中发起导出
+> **Dica**: nas configurações do CapCut/Jianying você pode ver a posição do «caminho de rascunhos». Se alterou o padrão, use o diretório real.
 
-1. 打开目标项目
-2. 点击右上角 **导出** 按钮
-3. 选择 **导出为剪映草稿**
+### 2. Iniciar a exportação no ArcReel
 
-### 3. 填写导出参数
+1. Abra o projeto alvo
+2. Clique no botão **Exportar** no canto superior direito
+3. Escolha **Exportar como rascunho CapCut/Jianying**
 
-| 参数 | 说明 |
+### 3. Preencher os parâmetros de exportação
+
+| Parâmetro | Descrição |
 |------|------|
-| **集数** | 选择要导出的集（多集项目会出现下拉选择器） |
-| **剪映版本** | 选择 **6.0+**（推荐）或 **5.x**，需与本地安装的剪映版本匹配 |
-| **草稿目录** | 填入上面找到的剪映草稿路径（首次填写后会自动记忆） |
+| **Episódio** | Escolha o episódio a exportar (em projetos multi-episódio aparece um seletor) |
+| **Versão CapCut/Jianying** | Escolha **6.0+** (recomendado) ou **5.x**, de acordo com a versão instalada localmente |
+| **Diretório de rascunhos** | Preencha o caminho de rascunhos encontrado acima (na primeira vez é memorizado) |
 
-点击 **导出草稿**，浏览器会下载一个 ZIP 文件。
+Clique em **Exportar rascunho**; o browser baixa um arquivo ZIP.
 
-### 4. 解压到草稿目录
+### 4. Descompactar no diretório de rascunhos
 
-将下载的 ZIP 文件解压到上面填写的剪映草稿目录中。解压后的结构如下：
+Descompacte o ZIP baixado no diretório de rascunhos CapCut/Jianying preenchido acima. A estrutura fica assim:
 
 ```
 com.lveditor.draft/
-├── ... (其他已有草稿)
-└── {项目名}_第{N}集/          ← 解压出来的文件夹
-    ├── draft_info.json        (剪映 6+) 或 draft_content.json (5.x)
+├── ... (outros rascunhos já existentes)
+└── {nome-do-projeto}_ep{N}/          ← pasta descompactada
+    ├── draft_info.json        (CapCut/Jianying 6+) ou draft_content.json (5.x)
     ├── draft_meta_info.json
     └── assets/
         ├── segment_S1.mp4
@@ -57,48 +57,48 @@ com.lveditor.draft/
         └── ...
 ```
 
-### 5. 在剪映中打开
+### 5. Abrir no CapCut/Jianying
 
-1. 打开（或重启）剪映桌面版
-2. 在"草稿"列表中找到新出现的 **{项目名}\_第{N}集** 草稿
-3. 双击打开即可在时间线上看到所有视频片段
+1. Abra (ou reinicie) o CapCut/Jianying desktop
+2. Na lista de «Rascunhos», encontre o rascunho **{nome-do-projeto}\_ep{N}** recém-aparecido
+3. Clique duas vezes para abrir e ver todos os clipes na timeline
 
-## 导出内容说明
+## Conteúdo exportado
 
-### 说书模式（Narration）
+### Modo narração (Narration)
 
-- **视频轨**：所有已生成的视频片段按顺序排列
-- **字幕轨**：自动附带每个片段对应的小说原文作为字幕（白色文字、黑色描边），可在剪映中自由调整样式和位置
+- **Trilha de vídeo**: todos os clipes gerados em ordem
+- **Trilha de legendas**: o texto original do romance de cada segmento é anexado automaticamente como legenda (texto branco, contorno preto); estilo e posição são ajustáveis no CapCut/Jianying
 
-### 剧集模式（Drama）
+### Modo drama (Drama)
 
-- **视频轨**：按场景顺序排列所有已生成的视频片段
-- 不附带字幕（多角色对话场景的字幕结构较复杂，建议在剪映中手动添加）
+- **Trilha de vídeo**: todos os clipes gerados em ordem de cena
+- Sem legendas anexadas (a estrutura de legendas em cenas multi-personagem é mais complexa; recomenda-se adicionar manualmente no CapCut/Jianying)
 
-### 画布尺寸
+### Tamanho do canvas
 
-自动根据项目设置确定：
-- 竖屏（9:16）→ 1080×1920
-- 横屏（16:9）→ 1920×1080
+Determinado automaticamente pelas settings do projeto:
+- Vertical (9:16) → 1080×1920
+- Horizontal (16:9) → 1920×1080
 
-如项目未设置宽高比，会从首个视频文件自动检测。
+Se o projeto não tiver aspect ratio definido, é detectado automaticamente a partir do primeiro arquivo de vídeo.
 
-## 常见问题
+## Perguntas frequentes
 
-### 剪映中看不到导出的草稿？
+### O rascunho exportado não aparece no CapCut/Jianying?
 
-- 确认 ZIP 解压到了正确的草稿目录
-- 确认解压后的文件夹直接位于草稿目录下（不要多套一层文件夹）
-- 尝试重启剪映
+- Confirme que o ZIP foi descompactado no diretório correto de rascunhos
+- Confirme que a pasta descompactada está **diretamente** sob o diretório de rascunhos (sem pasta intermediária extra)
+- Tente reiniciar o CapCut/Jianying
 
-### 版本不匹配怎么办？
+### E se a versão não bater?
 
-导出时选择的剪映版本必须与本地安装版本对应：
-- 剪映 6.0 及以上 → 选择 **6.0+**
-- 剪映 5.x → 选择 **5.x**
+A versão CapCut/Jianying escolhida na exportação precisa corresponder à instalada localmente:
+- CapCut/Jianying 6.0 ou superior → escolha **6.0+**
+- CapCut/Jianying 5.x → escolha **5.x**
 
-如果选错了版本，重新导出并选择正确版本即可。
+Se escolheu a versão errada, reexporte com a versão correta.
 
-### 部分视频片段缺失？
+### Faltam alguns clipes de vídeo?
 
-导出仅包含已成功生成的视频片段。如果某些片段尚未生成或生成失败，它们不会出现在草稿中。回到 ArcReel 补充生成后重新导出即可。
+A exportação só inclui clipes gerados com sucesso. Se alguns ainda não foram gerados ou falharam, não aparecem no rascunho. Volte ao ArcReel, complete a geração e reexporte.

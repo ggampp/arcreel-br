@@ -1,151 +1,151 @@
-# 带货短视频八段框架时长配比调研
+# Pesquisa de proporção de duração do framework de 8 seções para short video de vendas
 
-> 用途：广告/短片模式（content_mode=ad）剧本生成 prompt 中各时长档配比数字的依据。四档配比表已经维护者审定（2026-06-11）；本文保留调研来源链路与推断标注，便于后续校定与扩展档位。调研方法：通读 coreyhaines31/marketingskills 仓库（50 个 skill）+ 公开行业资料交叉核实。
+> Uso: base numérica das proporções de duração por faixa no prompt de geração de roteiro do modo anúncio/curta (content_mode=ad). A tabela de quatro faixas já foi aprovada pelo mantenedor (2026-06-11); este documento preserva a cadeia de fontes da pesquisa e as marcações de inferência, para calibração e extensão de faixas futuras. Método: leitura completa do repositório coreyhaines31/marketingskills (50 skills) + cruzamento com material público do setor.
 
-## 一、marketingskills 仓库盘点
+## 1. Inventário do repositório marketingskills
 
-仓库（https://github.com/coreyhaines31/marketingskills）中与本任务相关的内容如下。**该仓库没有按 15/30/60/90 秒分档的广告时长配比表**——这是 SaaS 营销向的 skill 集，最接近的是 social skill 里两个带秒数区间的短视频结构模板。可迁移的结构性原则不少：
+Conteúdo relevante no repositório (https://github.com/coreyhaines31/marketingskills). **O repositório não tem tabela de proporção de duração de anúncio por faixas 15/30/60/90 s** — é um conjunto de skills orientado a marketing SaaS; o mais próximo são dois templates de estrutura de short video com intervalos em segundos no skill social. Há vários princípios estruturais transferíveis:
 
-| Skill（路径） | 适用经验 |
+| Skill (caminho) | Experiência aplicável |
 |---|---|
-| **social**（`skills/social/SKILL.md` 的 Short-Form Video 章节） | 最直接相关。① "3 秒法则"：视觉钩+口播钩+文字钩三钩齐发，第 1 秒就要命中；② 平台最优时长：TikTok 15-60s / Reels 15-30s / Shorts 30-60s；③ **Problem-Solution 结构（15-30s）：hook 0-3s → 痛点放大 3-10s → 解决方案 10-25s → CTA 25-30s**（30 秒档的直接骨架）；④ 常见错误：钩子铺垫太慢、能更短就更短、没有 CTA |
-| **social/references/short-form-video.md** | ① 钩子库四类（好奇/价值/故事/争议），可直接喂给 hook 段的 prompt；② 脚本模板固定 "Hook 0-3s + Body + **CTA 末尾 3-5s**"；③ Story Arc（45-60s）：hook 0-3 / 铺垫 3-15 / 过程 15-45 / 结果 45-55 / CTA 55-60；④ **镜头节奏：B-roll 快切 1-3s/镜，slideshow 2-4s/页**（与单镜头 2-6s 约束吻合） |
-| **ads**（`skills/ads/SKILL.md` + `references/ad-copy-templates.md`） | ① PAS（问题→放大→解决→CTA）、BAB、Social Proof Lead、**Direct Response 公式（大胆承诺→证明→带紧迫感的 CTA）**——后者是 trust→price_promo→cta 的排序依据；② CTA 分软/硬/紧迫三档，按目标选；③ **测试优先级：hook 对效果影响最大**，其次 headline、卖点、CTA |
-| **ad-creative**（`skills/ad-creative/SKILL.md`） | ① 写创意先定 3-5 个"角度"（痛点/结果/社证/紧迫/身份……），与八段 taxonomy 一一对应；② TikTok 广告文案限 80 字符内的平台规格意识 |
-| **marketing-psychology**（`skills/marketing-psychology/SKILL.md`） | ① AIDA（注意→兴趣→欲望→行动）佐证八段排序；② "建立信任→权威+社证"（trust 段素材方向）、"制造紧迫→稀缺+损失厌恶"（price_promo 段写法）；③ 价格呈现技巧（Rule of 100、心理账户"每天 1 元"）可进 price_promo 的 prompt |
-| **video**（`skills/video/SKILL.md`） | 偏制作工具链，对配比无输入；但"**85% 社交视频静音观看**、9:16、AI 模型渲染不了可读文字"三条对镜头 prompt 生成有约束价值 |
-| **copywriting**（`references/copy-frameworks.md`） | 标题公式（"{结果} without {痛点}"等）可复用为 hook 台词模板；落地页章节排序（问题→方案→社证→FAQ→CTA）再次印证段落顺序 |
+| **social** (capítulo Short-Form Video de `skills/social/SKILL.md`) | Mais diretamente relacionado. ① "Regra dos 3 segundos": gancho visual + gancho falado + gancho textual juntos; acertar no 1º segundo; ② duração ótima por plataforma: TikTok 15-60s / Reels 15-30s / Shorts 30-60s; ③ **Estrutura Problem-Solution (15-30s): hook 0-3s → amplificar dor 3-10s → solução 10-25s → CTA 25-30s** (esqueleto direto da faixa de 30 s); ④ erros comuns: gancho com setup lento demais, encurtar quando possível, sem CTA |
+| **social/references/short-form-video.md** | ① Biblioteca de ganchos em quatro tipos (curiosidade/valor/história/polêmica), pode alimentar o prompt do trecho hook; ② template de roteiro fixo "Hook 0-3s + Body + **CTA final 3-5s**"; ③ Story Arc (45-60s): hook 0-3 / setup 3-15 / processo 15-45 / resultado 45-55 / CTA 55-60; ④ **Ritmo de takes: B-roll corte rápido 1-3s/plano, slideshow 2-4s/página** (alinha com a restrição de plano único 2-6s) |
+| **ads** (`skills/ads/SKILL.md` + `references/ad-copy-templates.md`) | ① PAS (problema→amplificar→solução→CTA), BAB, Social Proof Lead, **fórmula Direct Response (promessa ousada→prova→CTA com urgência)** — esta última fundamenta a ordem trust→price_promo→cta; ② CTA em três níveis soft/hard/urgência, conforme o objetivo; ③ **Prioridade de teste: hook tem o maior impacto no resultado**, depois headline, benefício, CTA |
+| **ad-creative** (`skills/ad-creative/SKILL.md`) | ① Antes de criar, definir 3-5 "ângulos" (dor/resultado/prova social/urgência/identidade…), mapeando 1:1 à taxonomia de 8 seções; ② consciência de especificação de plataforma: copy de anúncio TikTok ≤80 caracteres |
+| **marketing-psychology** (`skills/marketing-psychology/SKILL.md`) | ① AIDA (atenção→interesse→desejo→ação) reforça a ordem das 8 seções; ② "construir confiança→autoridade+prova social" (direção de material do trecho trust), "criar urgência→escassez+aversão à perda" (redação do trecho price_promo); ③ técnicas de apresentação de preço (Rule of 100, conta mental "R$ 1 por dia") podem entrar no prompt de price_promo |
+| **video** (`skills/video/SKILL.md`) | Mais voltado a cadeia de produção; sem input para proporções; mas as três regras "**85% dos vídeos sociais são vistos sem som**, 9:16, modelo de IA não renderiza texto legível" têm valor de restrição para geração de prompts de plano |
+| **copywriting** (`references/copy-frameworks.md`) | Fórmulas de título ("{resultado} without {dor}" etc.) reutilizáveis como templates de falas do hook; ordem de seções de landing page (problema→solução→prova social→FAQ→CTA) reforça de novo a ordem dos trechos |
 
-**提炼出的可迁移原则**（仓库证据 → 配比表的用法）：
+**Princípios transferíveis extraídos** (evidência do repositório → uso na tabela de proporções):
 
-1. **hook 和 CTA 是"绝对时长"段**：所有模板无论总长 15s 还是 60s，hook 恒为 0-3s、CTA 恒为末尾 3-5s——加长视频不等比放大头尾。
-2. **加长的时间全部给中段**（方案/演示/证明），这是档位间唯一的伸缩区。
-3. **痛点→方案→证明→行动的顺序不随时长变**，短档位是"砍段"而不是"乱序"。
-4. **单镜头 1-4s 快切、内容上每隔几秒一个新信息点**是短视频底层节奏。
+1. **hook e CTA são trechos de "duração absoluta"**: em todos os templates, seja 15s ou 60s de total, hook é sempre 0-3s e CTA sempre os últimos 3-5s — alongar o vídeo não amplia cabeça e cauda proporcionalmente.
+2. **Todo o tempo extra vai para o meio** (solução/demo/prova); essa é a única zona elástica entre faixas.
+3. **A ordem dor→solução→prova→ação não muda com a duração**; faixas curtas "cortam seções", não reordenam.
+4. **Corte rápido de 1-4s por plano e um novo ponto de informação a cada poucos segundos** é o ritmo base do short video.
 
-## 二、行业资料关键结论（附来源）
+## 2. Conclusões-chave do material do setor (com fontes)
 
-**平台官方/官方数据类**
+**Oficial da plataforma / dados oficiais**
 
-| # | 结论 | 来源 |
+| # | Conclusão | Fonte |
 |---|---|---|
-| 1 | TikTok 官方：CTR 最高的视频中 **63% 在前 3 秒内亮出核心信息或产品** | TikTok 官方 PDF《9 Creative Tips to drive performance》 https://ads.tiktok.com/business/library/Auction_Ads_Creative_Tips.pdf （转引：https://lebesgue.io/tiktok-ads/how-to-increase-tiktok-ctr-9-creative-tips ） |
-| 2 | TikTok 官方：**前 6 秒捕获 90% 的广告记忆效果**；推荐 hook–body–close 三段结构 | TikTok For Business 博客 https://ads.tiktok.com/business/en/blog/creative-best-practices-top-performing-ads （该域名直接抓取被证书校验拦截，数字经 https://www.stackmatix.com/blog/tiktok-hook-first-3-seconds 与 https://www.2pointagency.com/glossary/tiktok-creative-best-practices-the-3-second-rule/ 交叉确认） |
-| 3 | TikTok 数据：**多场景/多机位切换的视频转化率高 38%**、展示量高 40%+，**99% 的电商爆款视频用了多场景多角度**；93% 爆款带音频 | https://tinuiti.com/blog/paid-social/tiktok-best-practices/ （引 TikTok 官方数据；原文 https://ads.tiktok.com/business/en-US/blog/creative-that-drives-conversions ） |
-| 4 | TikTok 数据：**1/4 的最佳表现视频时长落在 21-34 秒**（展示量 +1.6%） | https://creatify.ai/blog/tiktok-ads-complete-guide-to-creating-high-performing-creatives-in-2026 （引 TikTok 数据） |
-| 5 | Meta：Reels 广告上限 90s；甜点区 15-60s，**超 30s 在 FB Reels 上明显难保持注意力**；多数活动理想长度 6-15s；**产品/痛点/结果要在前 0.3-2 秒入画** | https://www.jonloomer.com/meta-video-ad-length-requirements/ 、https://thedesignsfirm.com/en/blog/facebook-video-ad-length 、https://www.brandwatch.com/blog/facebook-video-ads-best-practices/ 、官方规格 https://www.facebook.com/business/help/817989058548892 |
+| 1 | TikTok oficial: entre os vídeos com maior CTR, **63% mostram a informação central ou o produto nos primeiros 3 segundos** | PDF oficial TikTok *9 Creative Tips to drive performance* https://ads.tiktok.com/business/library/Auction_Ads_Creative_Tips.pdf (citado em: https://lebesgue.io/tiktok-ads/how-to-increase-tiktok-ctr-9-creative-tips ) |
+| 2 | TikTok oficial: **os primeiros 6 segundos capturam 90% do efeito de memória do anúncio**; recomenda estrutura em três atos hook–body–close | Blog TikTok For Business https://ads.tiktok.com/business/en/blog/creative-best-practices-top-performing-ads (o domínio foi bloqueado por validação de certificado na captura direta; números cruzados com https://www.stackmatix.com/blog/tiktok-hook-first-3-seconds e https://www.2pointagency.com/glossary/tiktok-creative-best-practices-the-3-second-rule/ ) |
+| 3 | Dados TikTok: **vídeos com troca multi-cenário/multi-ângulo convertem 38% a mais**, impressões +40%+, **99% dos vídeos e-commerce virais usaram multi-cenário multi-ângulo**; 93% dos virais têm áudio | https://tinuiti.com/blog/paid-social/tiktok-best-practices/ (cita dados oficiais TikTok; original https://ads.tiktok.com/business/en-US/blog/creative-that-drives-conversions ) |
+| 4 | Dados TikTok: **1/4 dos vídeos de melhor desempenho tem duração entre 21-34 segundos** (impressões +1,6%) | https://creatify.ai/blog/tiktok-ads-complete-guide-to-creating-high-performing-creatives-in-2026 (cita dados TikTok) |
+| 5 | Meta: limite de anúncios Reels 90s; sweet spot 15-60s, **acima de 30s a atenção no FB Reels cai de forma clara**; para a maioria das campanhas o ideal é 6-15s; **produto/dor/resultado devem entrar em quadro nos primeiros 0,3-2 segundos** | https://www.jonloomer.com/meta-video-ad-length-requirements/ , https://thedesignsfirm.com/en/blog/facebook-video-ad-length , https://www.brandwatch.com/blog/facebook-video-ads-best-practices/ , especificação oficial https://www.facebook.com/business/help/817989058548892 |
 
-**抖音/中文带货类**
+**Douyin / vendas em chinês**
 
-| # | 结论 | 来源 |
+| # | Conclusão | Fonte |
 |---|---|---|
-| 6 | 爆款带货脚本四块占比：**开头 0-3 秒痛点提问 → 紧跟 20% 时长强化需求 → 中间 50% 逐一讲卖点+产品展示 → 最后 10% 给"必须买的理由+福利/价格优势"促单** | 青瓜传媒《爆款带货短视频脚本结构拆解》 https://www.opp2.com/317828.html （已直接抓取核实） |
-| 7 | 黄金 3 秒：**超 50% 用户在前 3 秒决定划走与否**；钩子三范式（悬念/痛点/利益点直出） | 蝉妈妈《抖音电商黄金3秒优化方法论》 https://www.chanmama.com/yunyingquan/article/1428.html （已直接抓取核实） |
-| 8 | 3 秒留存 ≥58% 为健康线、整体完播 ≥32%（爆款 45%+）；**每 5 秒设一个兴趣点**；**新手从 30 秒练起，90 秒对节奏把控要求很高** | https://www.cnblogs.com/huizhudev/p/19148789 （行业经验帖，非官方口径） |
-| 9 | 电商带货视频多为 **15 秒左右、30 秒封顶**；8-15 秒内要见到产品亮点/价格/促销；**价格是影响下单的最重要因素**，价格优势放结尾促单 | https://www.changbiyuan.com/douyin/duanshipin/2022/duanshipin_1003/54743.html |
+| 6 | Proporção de quatro blocos em roteiro de vendas viral: **abertura 0-3 s pergunta de dor → em seguida 20% da duração reforçando a necessidade → meio 50% listando benefícios + demonstração do produto → últimos 10% "razão para comprar agora + benefício/preço" para fechar** | Qinggua Media *Desmontagem da estrutura de roteiro de short video de vendas viral* https://www.opp2.com/317828.html (captura direta verificada) |
+| 7 | 3 segundos de ouro: **mais de 50% dos usuários decidem deslizar ou não nos primeiros 3 segundos**; três paradigmas de gancho (suspense/dor/benefício direto) | Chanmama *Metodologia de otimização dos 3 segundos de ouro do e-commerce Douyin* https://www.chanmama.com/yunyingquan/article/1428.html (captura direta verificada) |
+| 8 | Retenção 3s ≥58% como linha saudável, conclusão completa ≥32% (viral 45%+); **um ponto de interesse a cada 5 segundos**; **iniciantes começam nos 30 s; 90 s exige controle de ritmo alto** | https://www.cnblogs.com/huizhudev/p/19148789 (post de experiência setorial, não oficial) |
+| 9 | Vídeos de e-commerce de vendas costumam ter **cerca de 15 s, no máximo 30 s**; em 8-15 s é preciso ver destaque do produto/preço/promoção; **preço é o fator mais importante para a compra**, vantagem de preço no final para fechar | https://www.changbiyuan.com/douyin/duanshipin/2022/duanshipin_1003/54743.html |
 
-**UGC / Direct Response 结构类**
+**UGC / estrutura Direct Response**
 
-| # | 结论 | 来源 |
+| # | Conclusão | Fonte |
 |---|---|---|
-| 10 | UGC 直效公式 **Hook → Problem → Solution → Value Prop → Social Proof → CTA**；hook 2-3 秒封顶；"15s 压缩中段、30s 均衡、60s 扩演示" | https://motionapp.com/blog/how-to-write-ugc-ad-scripts （已抓取核实） |
-| 11 | **60 秒 UGC 五段配时：hook 0-3 / 痛点 3-10 / 方案 10-25 / 社证 25-45 / CTA 45-60**；每 5-8 秒换一个画面；每个脚本写 ≥5 个 hook 分开测 | https://www.retiplex.com/blog/ugc-ad-script-guide （已抓取核实） |
-| 12 | **90 秒电商演示型结构：利益钩 0-5 / 引导式演示 6-75（卖点边演边证，社证织入中段）/ 紧迫 CTA 76-90**；**90 秒叙事型：人物与冲突 0-15 / 过程 16-75 / 揭晓+CTA 76-90**；30 秒社交广告：hook 0-3 / 价值 4-25 / CTA 26-30；**15 秒 TikTok 原生式：花式开场 0-1 / 高密度价值 2-12 / 好奇缺口+CTA 13-15** | https://shortgenius.com/blog/ad-script-example （已抓取核实） |
-| 13 | 解释型视频脚本配比 **Problem 30% / Solution 40% / Proof 20% / Action 10%**；语速换算 **150 英文词/分钟**：30s=60-75 词、60s=140-160 词、90s=210-230 词 | https://vidico.com/news/explainer-video-script-examples/ （已抓取核实） |
-| 14 | UGC 口播 **30 秒约 75-120 词**；前 3-5 秒定生死 | https://billo.app/blog/ugc-scripts/ （已抓取核实） |
-| 15 | VSL 经验：**hook 承担约 80% 的成败权重**；"最大的流失发生在前 10-30 秒"；证明段（具体数字的真实顾客结果）直接扛转化；2026 年趋势是 30-90 秒"micro-VSL" | https://www.blog.theperformers.io/p/video-sales-letters-ads 、https://adlibrary.com/guides/vsl-ads-ecommerce-guide |
-| 16 | 直效 UGC 推荐 15-30 秒；"最常见的错误是铺垫太长" | https://www.rathlymarketing.com/faq/best-ugc-ad-structure/ （已抓取核实） |
+| 10 | Fórmula UGC de resposta direta **Hook → Problem → Solution → Value Prop → Social Proof → CTA**; hook no máximo 2-3 s; "15s comprime o meio, 30s equilibra, 60s expande a demo" | https://motionapp.com/blog/how-to-write-ugc-ad-scripts (captura verificada) |
+| 11 | **Proporção de 5 trechos em UGC de 60 s: hook 0-3 / dor 3-10 / solução 10-25 / prova social 25-45 / CTA 45-60**; trocar de quadro a cada 5-8 s; escrever ≥5 hooks por roteiro e testar separados | https://www.retiplex.com/blog/ugc-ad-script-guide (captura verificada) |
+| 12 | **Estrutura demo e-commerce 90 s: gancho de benefício 0-5 / demo guiada 6-75 (benefício com prova ao vivo, prova social entrelaçada no meio) / CTA de urgência 76-90**; **90 s narrativo: personagem e conflito 0-15 / processo 16-75 / revelação+CTA 76-90**; anúncio social 30 s: hook 0-3 / valor 4-25 / CTA 26-30; **15 s estilo nativo TikTok: abertura chamativa 0-1 / valor de alta densidade 2-12 / gap de curiosidade+CTA 13-15** | https://shortgenius.com/blog/ad-script-example (captura verificada) |
+| 13 | Proporção de roteiro de vídeo explicativo **Problem 30% / Solution 40% / Proof 20% / Action 10%**; conversão de ritmo **150 palavras em inglês/minuto**: 30s=60-75 palavras, 60s=140-160 palavras, 90s=210-230 palavras | https://vidico.com/news/explainer-video-script-examples/ (captura verificada) |
+| 14 | Narração UGC **30 s ≈ 75-120 palavras**; os primeiros 3-5 s definem o destino | https://billo.app/blog/ugc-scripts/ (captura verificada) |
+| 15 | Experiência VSL: **o hook carrega cerca de 80% do peso do sucesso/fracasso**; "a maior perda ocorre nos primeiros 10-30 s"; o trecho de prova (resultados reais de clientes com números concretos) sustenta a conversão; tendência 2026: "micro-VSL" de 30-90 s | https://www.blog.theperformers.io/p/video-sales-letters-ads , https://adlibrary.com/guides/vsl-ads-ecommerce-guide |
+| 16 | UGC de resposta direta recomenda 15-30 s; "o erro mais comum é setup longo demais" | https://www.rathlymarketing.com/faq/best-ugc-ad-structure/ (captura verificada) |
 
-## 三、四档配比表（已审定）
+## 3. Tabela de proporções das quatro faixas (já aprovada)
 
-**通用规则**（适用于全部档位，与配比表一并写进剧本生成 prompt）：
+**Regras gerais** (aplicam-se a todas as faixas; entram no prompt de geração de roteiro junto com a tabela):
 
-- hook 与 cta 是**绝对时长段**（hook 2-4s、cta 3-6s），不随档位等比放大；加长的秒数优先给 selling_point/demo，其次 trust（依据 #10、#11、#12、仓库原则 1-2）。
-- price_promo 永远紧贴 cta 构成"促单收尾块"（依据 #6、#9、ads skill 的 Direct Response 公式）。
-- 即使 hook 不是产品画面，**产品也应在前 3 秒内入画**（文字/局部/手持均可）（依据 #1、#5）。
-- 单 section 超过 6 秒必须拆成多个镜头；全片平均 3-5 秒/镜，开头允许 2-3 秒快切（依据 #11 每 5-8 秒换画面、#8 每 5 秒一个兴趣点、仓库 1-3s B-roll 快切）。
-- 镜头数宁多勿少：多场景多角度有官方背书的转化提升（依据 #3）。
+- hook e cta são **trechos de duração absoluta** (hook 2-4s, cta 3-6s), sem ampliação proporcional por faixa; segundos extras priorizam selling_point/demo, depois trust (bases #10, #11, #12, princípios 1-2 do repositório).
+- price_promo fica sempre colado ao cta formando o "bloco de fechamento" (bases #6, #9, fórmula Direct Response do skill ads).
+- Mesmo que o hook não seja o quadro do produto, **o produto deve entrar em quadro nos primeiros 3 segundos** (texto/detalhe/mão ok) (bases #1, #5).
+- Seção única acima de 6 s deve virar vários planos; média do filme 3-5 s/plano, abertura permite corte rápido 2-3 s (bases #11 trocar quadro a cada 5-8 s, #8 um ponto de interesse a cada 5 s, B-roll 1-3s do repositório).
+- Preferir mais planos a menos: multi-cenário multi-ângulo tem melhoria de conversão com respaldo oficial (base #3).
 
-### 档位一：15 秒（冲动型/投流款，5-6 镜头）
+### Faixa 1: 15 segundos (impulso/mídia paga, 5-6 planos)
 
-| section | 秒数 | 累计 | 镜头数 | 说明 |
+| section | segundos | acumulado | planos | descrição |
 |---|---|---|---|---|
-| hook | 3 | 0-3 | 1 | 痛点提问式或结果前置式开场，**由 hook 兼任 pain_point** |
-| product_reveal | 2 | 3-5 | 1 | 产品入画+名称 |
-| selling_point | 3 | 5-8 | 1 | 只讲 1 个核心卖点 |
-| demo | 4 | 8-12 | 1-2 | 1 个使用场景/效果对比 |
-| cta | 3 | 12-15 | 1 | 行动指令，**可带一句促销词兼任 price_promo** |
+| hook | 3 | 0-3 | 1 | Abertura com pergunta de dor ou resultado à frente; **hook assume também pain_point** |
+| product_reveal | 2 | 3-5 | 1 | Produto em quadro + nome |
+| selling_point | 3 | 5-8 | 1 | Só 1 benefício central |
+| demo | 4 | 8-12 | 1-2 | 1 cenário de uso / comparação de efeito |
+| cta | 3 | 12-15 | 1 | Comando de ação; **pode levar uma frase promocional e assumir price_promo** |
 
-**砍掉**：pain_point（折叠进 hook——PAS 的 problem 本来就在 0-3s，见 #6、#7）、trust（15 秒装不下独立证明段，见 #12 的 15s 式）、price_promo（折叠进 cta 一句话，见 #12 "好奇缺口+CTA 13-15"）。
-**依据**：整体骨架对齐 #12 的 15 秒 TikTok 原生式（0-1 开场 / 2-12 高密度价值 / 13-15 CTA）：本表 3-12 秒的 reveal+selling+demo 合计 9 秒即"高密度价值块"；hook 3s 与 cta 3s 取自仓库 social skill 模板与 #1。镜头数 = 15s ÷ 2.5-3s 快切。
+**Cortados**: pain_point (dobrado no hook — o problem do PAS já está em 0-3s, ver #6, #7), trust (15 s não cabem trecho de prova independente, ver estilo 15s de #12), price_promo (dobrado em uma frase no cta, ver #12 "gap de curiosidade+CTA 13-15").
+**Base**: esqueleto alinhado ao estilo 15 s nativo TikTok de #12 (0-1 abertura / 2-12 valor de alta densidade / 13-15 CTA): no total, reveal+selling+demo de 3-12 s somam 9 s = "bloco de valor de alta densidade"; hook 3s e cta 3s vêm do template social skill do repositório e de #1. Nº de planos = 15s ÷ 2,5-3s de corte rápido.
 
-### 档位二：30 秒（标准带货位，默认推荐档，8-10 镜头）
+### Faixa 2: 30 segundos (posição padrão de vendas, faixa recomendada padrão, 8-10 planos)
 
-| section | 秒数 | 累计 | 镜头数 | 说明 |
+| section | segundos | acumulado | planos | descrição |
 |---|---|---|---|---|
-| hook | 3 | 0-3 | 1 | 三钩齐发（画面+口播+花字） |
-| pain_point | 4 | 3-7 | 1-2 | 放大痛点、共鸣场景 |
-| product_reveal | 3 | 7-10 | 1 | 产品登场作为"答案" |
-| selling_point | 6 | 10-16 | 2 | 1-2 个卖点 |
-| demo | 6 | 16-22 | 2 | 上手/上脸/实测 |
-| trust | 3 | 22-25 | 1 | 一句话社证（销量/评分/前后对比），可做花字叠加 |
-| price_promo | 2 | 25-27 | 1 | 价格卡/优惠闪现 |
-| cta | 3 | 27-30 | 1 | 行动指令+紧迫感 |
+| hook | 3 | 0-3 | 1 | Três ganchos juntos (imagem+narração+texto na tela) |
+| pain_point | 4 | 3-7 | 1-2 | Amplificar dor, cenário de empatia |
+| product_reveal | 3 | 7-10 | 1 | Produto entra como "a resposta" |
+| selling_point | 6 | 10-16 | 2 | 1-2 benefícios |
+| demo | 6 | 16-22 | 2 | Uso nas mãos/rosto/teste real |
+| trust | 3 | 22-25 | 1 | Prova social em uma frase (vendas/nota/antes-depois), pode ser texto sobreposto |
+| price_promo | 2 | 25-27 | 1 | Card de preço / flash de desconto |
+| cta | 3 | 27-30 | 1 | Comando de ação + urgência |
 
-**砍/缩**：八段全保但 trust 与 price_promo 压成"一句话镜头"；若产品极低客单、无可信背书，**首砍 trust**，秒数还给 demo。
-**依据**：骨架严格对齐仓库 social skill 的 Problem-Solution 15-30s 模板（hook 0-3 / 痛点 3-10 / 方案 10-25 / CTA 25-30）——本表 3-10 为 pain+reveal、10-25 为 selling+demo+trust、25-30 为 price+cta，三块边界完全重合；同时吻合 #12 的 30s 式。trust 保留为独立一拍的理由见 #16 与 #15（证明扛转化）。21-34s 是 TikTok 数据的最优时长带（#4），此档为默认推荐档。
+**Cortar/encolher**: as 8 seções se mantêm, mas trust e price_promo viram "plano de uma frase"; se ticket muito baixo e sem credibilidade, **cortar trust primeiro** e devolver segundos à demo.
+**Base**: esqueleto alinhado rigorosamente ao template Problem-Solution 15-30s do social skill do repositório (hook 0-3 / dor 3-10 / solução 10-25 / CTA 25-30) — nesta tabela 3-10 = pain+reveal, 10-25 = selling+demo+trust, 25-30 = price+cta, fronteiras dos três blocos coincidem; também alinha ao estilo 30s de #12. Motivo para manter trust como batida independente: #16 e #15 (prova sustenta conversão). 21-34s é a faixa de duração ótima dos dados TikTok (#4); esta é a faixa recomendada padrão.
 
-### 档位三：60 秒（完整说服链，13-16 镜头）
+### Faixa 3: 60 segundos (cadeia completa de persuasão, 13-16 planos)
 
-| section | 秒数 | 累计 | 镜头数 | 说明 |
+| section | segundos | acumulado | planos | descrição |
 |---|---|---|---|---|
-| hook | 3 | 0-3 | 1 | 同上 |
-| pain_point | 7 | 3-10 | 2 | 痛点场景化（1-2 个具体情境） |
-| product_reveal | 5 | 10-15 | 1-2 | 登场+是什么+给谁用 |
-| selling_point | 12 | 15-27 | 3 | 2-3 个卖点，每个 4-6s 一镜 |
-| demo | 15 | 27-42 | 3-4 | 多角度演示/前后对比/数据可视化 |
-| trust | 8 | 42-50 | 2 | 评价截图+销量/资质，两镜 |
-| price_promo | 5 | 50-55 | 1-2 | 原价锚定→到手价→限时福利 |
-| cta | 5 | 55-60 | 1 | 行动指令+重申核心利益 |
+| hook | 3 | 0-3 | 1 | Como acima |
+| pain_point | 7 | 3-10 | 2 | Dor em cena (1-2 situações concretas) |
+| product_reveal | 5 | 10-15 | 1-2 | Entrada + o que é + para quem |
+| selling_point | 12 | 15-27 | 3 | 2-3 benefícios, cada um 4-6s por plano |
+| demo | 15 | 27-42 | 3-4 | Demo multi-ângulo / antes-depois / visualização de dados |
+| trust | 8 | 42-50 | 2 | Print de avaliação + vendas/credenciais, dois planos |
+| price_promo | 5 | 50-55 | 1-2 | Âncora de preço original → preço final → benefício por tempo limitado |
+| cta | 5 | 55-60 | 1 | Comando de ação + reforço do benefício central |
 
-**取舍**：八段全保、各自成块；60 秒的增量几乎全给了 selling_point+demo（合计 27s，占 45%）。
-**依据**：pain 3-10、hook 0-3、收尾块直接取自 #11（retiplex 60s 模板）；与 #11 的差异是把它 20 秒的社证块拆薄（trust 8s），秒数转给 demo——理由是 #10"60s 扩的是演示"、#6 中间 50% 是"卖点逐一讲述+产品展示"（本表 selling+demo=27s=45%≈青瓜的 50%）。比例核对：痛点 12%/方案块 53%/证明 13%/促单 17%，对照 #13 的 30/40/20/10——痛点更轻、促单更重，因为目标场景是直效带货而非解释型视频，促单收尾占比向 #6 的"最后 10%+价格优势"和 DR 公式靠拢。
+**Trade-off**: as 8 seções se mantêm, cada uma em bloco; o incremento de 60 s vai quase todo para selling_point+demo (27s no total, 45%).
+**Base**: pain 3-10, hook 0-3 e bloco final de CTA vêm direto de #11 (template retiplex 60s); a diferença em relação a #11 é diluir o bloco de 20 s de prova social (trust 8s) e transferir segundos à demo — motivos: #10 "60s expande a demo", #6 os 50% do meio são "benefícios um a um + demonstração do produto" (nesta tabela selling+demo=27s=45%≈50% da Qinggua). Checagem de proporção: dor 12%/bloco solução 53%/prova 13%/fechamento 17%, contra 30/40/20/10 de #13 — dor mais leve, fechamento mais pesado, porque o cenário-alvo é venda de resposta direta, não vídeo explicativo; a cauda de fechamento se aproxima de "últimos 10%+vantagem de preço" de #6 e da fórmula DR.
 
-### 档位四：90 秒（叙事型/高客单，18-22 镜头）
+### Faixa 4: 90 segundos (narrativo/ticket alto, 18-22 planos)
 
-| section | 秒数 | 累计 | 镜头数 | 说明 |
+| section | segundos | acumulado | planos | descrição |
 |---|---|---|---|---|
-| hook | 4 | 0-4 | 1 | 可用悬念/故事钩（"3 个月前我还……"） |
-| pain_point | 10 | 4-14 | 2-3 | 人物+冲突小叙事 |
-| product_reveal | 6 | 14-20 | 1-2 | 转折点：遇见产品 |
-| selling_point | 20 | 20-40 | 3-4 | 3 个卖点，逐个展开 |
-| demo | 24 | 40-64 | 4-6 | 多场景使用过程（核心块） |
-| trust | 12 | 64-76 | 2-3 | 用户证言/检测报告/销量 |
-| price_promo | 8 | 76-84 | 2 | 价格锚定+限时优惠拆解 |
-| cta | 6 | 84-90 | 1 | 紧迫感收口 |
+| hook | 4 | 0-4 | 1 | Pode usar gancho de suspense/história ("3 meses atrás eu ainda…") |
+| pain_point | 10 | 4-14 | 2-3 | Mini-narrativa de personagem + conflito |
+| product_reveal | 6 | 14-20 | 1-2 | Ponto de virada: encontrar o produto |
+| selling_point | 20 | 20-40 | 3-4 | 3 benefícios, cada um expandido |
+| demo | 24 | 40-64 | 4-6 | Processo de uso multi-cenário (bloco central) |
+| trust | 12 | 64-76 | 2-3 | Depoimento de usuário / laudo / vendas |
+| price_promo | 8 | 76-84 | 2 | Âncora de preço + desmontagem de oferta por tempo limitado |
+| cta | 6 | 84-90 | 1 | Fechamento com urgência |
 
-**取舍**：八段全保；与 60s 相比增量给 demo（+9）、selling_point（+8）、trust（+4）、pain_point（+3）。
-**依据**：骨架对齐 #12 的两个 90s 模板——叙事型"人物与冲突 0-15"（本表 hook+pain=0-14）、演示型"引导式演示 6-75"（本表 reveal+selling+demo=14-64 为演示主体、trust 64-76 织入其后）、两模板共同的"紧迫 CTA 76-90"（本表 price_promo+cta=76-90 完全重合）。**风险提示**：#5（>30s 在 FB Reels 难保注意力、90s 是 Reels 上限）与 #8（90 秒对节奏要求很高）都指向此档仅适合高客单/需教育的产品，prompt 中应要求 90s 档用"小故事"组织而非平铺卖点，且维持每 ~5 秒一个新信息点。
+**Trade-off**: as 8 seções se mantêm; em relação a 60s, o incremento vai para demo (+9), selling_point (+8), trust (+4), pain_point (+3).
+**Base**: esqueleto alinhado aos dois templates de 90s de #12 — narrativo "personagem e conflito 0-15" (nesta tabela hook+pain=0-14), demo "demo guiada 6-75" (nesta tabela reveal+selling+demo=14-64 como corpo da demo, trust 64-76 em seguida), e o comum aos dois "CTA de urgência 76-90" (nesta tabela price_promo+cta=76-90 coincide por completo). **Alerta de risco**: #5 (>30s no FB Reels é difícil manter atenção; 90s é o teto dos Reels) e #8 (90 s exige ritmo alto) apontam que esta faixa só serve a produtos de ticket alto/que precisam de educação; o prompt deve exigir que a faixa 90s se organize como "mini-história", não lista plana de benefícios, e manter um novo ponto de informação a cada ~5 s.
 
-**附：口播字数参考**（约束台词长度）：英文 15s≈40 词、30s≈60-120 词（#13、#14）、60s≈140-160 词、90s≈210-230 词（#13）。中文按 ~4 字/秒折算约 15s≈60 字 / 30s≈120 字 / 60s≈240 字 / 90s≈360 字——**此换算为推断值，无直接来源，建议按 TTS 实测语速校定**。
+**Anexo: referência de contagem de palavras da narração** (restringe comprimento das falas): inglês 15s≈40 palavras, 30s≈60-120 palavras (#13, #14), 60s≈140-160 palavras, 90s≈210-230 palavras (#13). Em chinês, com ~4 caracteres/segundo: 15s≈60 caracteres / 30s≈120 / 60s≈240 / 90s≈360 — **esta conversão é valor inferido, sem fonte direta; recomenda-se calibrar com velocidade real de TTS**.
 
-## 四、出处与推断标注
+## 4. Fontes e marcações de inferência
 
-**有直接出处的数字**：
+**Números com fonte direta**:
 
-- hook 恒 0-3s（多源一致：#1/#6/#7/#11/#12/仓库 social skill）；cta 恒末尾 3-6s（#11/#12/仓库 short-form-video.md）。
-- 30s 档三大块边界（0-3 / 3-25 / 25-30）：仓库 Problem-Solution 模板与 #12 双源直接给出。
-- 60s 档 pain 3-10、收尾 CTA 块起点：#11 原文秒数。
-- 90s 档 0-15 冲突块与 76-90 促单块：#12 原文秒数。
-- 单镜头 2-6s/快切 2-3s：仓库 B-roll 1-3s、slideshow 2-4s、#11 每 5-8s 换画面、#8 每 5s 兴趣点。
-- "前 3 秒亮产品"（#1 的 63%）、"前 6 秒 90% 记忆"（#2）、"多场景 38% 转化提升"（#3）、"21-34s 最优带"（#4）、占比骨架 3s/20%/50%/10%（#6）与 30/40/20/10（#13）、字数换算（#13/#14）。
+- hook sempre 0-3s (múltiplas fontes: #1/#6/#7/#11/#12/social skill do repositório); cta sempre últimos 3-6s (#11/#12/short-form-video.md do repositório).
+- Fronteiras dos três grandes blocos da faixa 30s (0-3 / 3-25 / 25-30): template Problem-Solution do repositório e #12, duas fontes diretas.
+- Faixa 60s pain 3-10 e início do bloco CTA final: segundos originais de #11.
+- Faixa 90s bloco de conflito 0-15 e bloco de fechamento 76-90: segundos originais de #12.
+- Plano único 2-6s / corte rápido 2-3s: B-roll 1-3s e slideshow 2-4s do repositório, #11 troca a cada 5-8s, #8 ponto de interesse a cada 5s.
+- "Produto nos primeiros 3 s" (63% de #1), "90% de memória nos primeiros 6 s" (#2), "multi-cenário +38% conversão" (#3), "faixa ótima 21-34s" (#4), esqueleto de proporção 3s/20%/50%/10% (#6) e 30/40/20/10 (#13), conversão de palavras (#13/#14).
 
-**基于结构原则的推断（无单一直接出处）**：
+**Inferências baseadas em princípios estruturais (sem fonte única direta)**:
 
-1. **所有 section 级精确到秒的切分值**（如 30 档 trust=3s、price_promo=2s；60 档 reveal=5s；90 档 selling=20s 等）：行业来源只给到 3-5 个粗块的区间，本表是把粗块边界按八段 taxonomy 内插得出——内插原则是"粗块边界不动、块内按卖点数/镜头长度均分"。每档总和精确等于档位时长是为 prompt 可执行性做的归一化。
-2. **15 秒档砍三段的决策**：业界 15s 模板只有 3-4 段，从未出现 8 段；砍 pain_point/trust/price_promo 而非别段，推理依据是 PAS 中 problem 本就占据 0-3s（可由 hook 兼任）、promo 可压成 CTA 内一句话（#12 的 15s 式末段即"好奇缺口+CTA"合体）、而产品/卖点/演示是带货视频不可砍的最小说服单元（#9：8-15 秒内要见到产品亮点）。
-3. **镜头数区间**：由"档位时长 ÷ 单镜头 2-6s"推算并向中高值取（多场景有 #3 官方背书），非任何来源直接给出。
-4. **60/90 档把 retiplex 式的 20 秒社证块压到 8-12s**：在 #11（社证重）与 #6/#10（演示重）两派之间折中，偏向后者因为目标场景是图生视频的带货片，演示画面可生成性更强；此为产品向判断，已随配比表一并经维护者审定。
-5. **中文字数/秒**：从英文 150 词/分钟类比推断，未找到权威中文语速来源。
+1. **Todos os valores de corte precisos ao segundo no nível de section** (ex.: trust=3s e price_promo=2s na faixa 30; reveal=5s na 60; selling=20s na 90 etc.): as fontes do setor só dão intervalos de 3-5 blocos grossos; esta tabela interpola as fronteiras dos blocos grossos na taxonomia de 8 seções — princípio de interpolação: "fronteiras dos blocos grossos não se movem; dentro do bloco divide-se pela contagem de benefícios/comprimento de plano". A soma exata de cada faixa igual à duração da faixa é normalização para o prompt ser executável.
+2. **Decisão de cortar três seções na faixa 15 s**: templates de 15s do setor têm só 3-4 seções, nunca 8; cortar pain_point/trust/price_promo e não outras seções se baseia em: no PAS o problem já ocupa 0-3s (hook pode assumir), promo pode virar uma frase dentro do CTA (o final do estilo 15s de #12 já é "gap de curiosidade+CTA" junto), e produto/benefício/demo são a unidade mínima de persuasão inegociável do vídeo de vendas (#9: em 8-15 s é preciso ver destaque do produto).
+3. **Intervalos de número de planos**: calculados por "duração da faixa ÷ 2-6s por plano" e puxados para o meio-alto (multi-cenário tem respaldo oficial #3); nenhuma fonte dá o número direto.
+4. **Faixas 60/90 comprimem o bloco de 20 s de prova social estilo retiplex para 8-12s**: meio-termo entre a escola #11 (prova social pesada) e #6/#10 (demo pesada), inclinando-se à última porque o cenário-alvo é peça de vendas image-to-video, em que a gerabilidade de quadro de demo é maior; julgamento orientado a produto, já aprovado pelo mantenedor junto com a tabela de proporções.
+5. **Caracteres chineses por segundo**: inferido por analogia com 150 palavras em inglês/minuto; não se encontrou fonte autoritativa de ritmo de fala em chinês.
 
-**未发现/未验证**：marketingskills 仓库无任何按档位的时长配比内容（已如实盘点）；TikTok 官方博客两个 URL 因证书问题无法直接抓取原文，相关数字均经 ≥2 个第三方转引交叉确认；"3 秒留存 ≥58%"出自行业经验帖（#8）而非抖音官方口径，引用时建议降级为参考值。
+**Não encontrado / não verificado**: o repositório marketingskills não tem nenhum conteúdo de proporção de duração por faixa (inventário honesto); dois URLs do blog oficial TikTok não puderam ser capturados direto por problema de certificado; os números relacionados foram cruzados com ≥2 citações de terceiros; "retenção 3s ≥58%" vem de post de experiência setorial (#8), não de comunicação oficial Douyin — ao citar, rebaixar a valor de referência.

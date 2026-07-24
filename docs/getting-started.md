@@ -1,276 +1,276 @@
-# 完整入门教程
+# Tutorial completo de introdução
 
-本教程指导你从零开始，使用 ArcReel 将小说转换为短视频。
+Este tutorial guia você do zero, usando o ArcReel para converter um romance em short video.
 
-## 你将学到
+## O que você vai aprender
 
-1. **环境准备** — 获取 API 密钥
-2. **部署服务** — 通过 Docker 部署
-3. **完整流程** — 从小说到视频的每一步操作
-4. **进阶技巧** — 重新生成、费用控制、本地开发
+1. **Preparação do ambiente** — obter chaves de API
+2. **Deploy do serviço** — subir com Docker
+3. **Fluxo completo** — cada passo do romance ao vídeo
+4. **Técnicas avançadas** — regenerar, controlar custos, desenvolvimento local
 
-## 预计耗时
+## Tempo estimado
 
-- 环境准备：10-20 分钟（仅首次需要）
-- 生成一个 1 分钟视频：约 30 分钟
+- Preparação do ambiente: 10–20 minutos (só na primeira vez)
+- Gerar um vídeo de 1 minuto: cerca de 30 minutos
 
-## 费用预估
+## Estimativa de custo
 
-ArcReel 支持多个供应商（Gemini、火山方舟、Grok、OpenAI、Vidu、阿里百炼、MiniMax、可灵 及自定义供应商），以下以 Gemini 为例：
+O ArcReel suporta vários fornecedores (Gemini, Volcengine Ark, Grok, OpenAI, Vidu, Alibaba DashScope, MiniMax, Kling e customizados). Exemplo com Gemini:
 
-| 类型 | 模型 | 单价 | 说明 |
+| Tipo | Modelo | Preço unitário | Nota |
 |------|------|------|------|
-| 图片生成 | Nano Banana Pro | $0.134/张 (1K/2K) | 高质量，适合角色设计图 |
-| 图片生成 | Nano Banana 2 | $0.067/张 (1K) | 更快更便宜，适合分镜图 |
-| 视频生成 | Veo 3.1 | $0.40/秒 (1080p 含音频) | 高质量 |
-| 视频生成 | Veo 3.1 Fast | $0.15/秒 (1080p 含音频) | 更快更便宜 |
-| 视频生成 | Veo 3.1 Lite | 更低 | 轻量模型，仅 AI Studio |
+| Geração de imagem | Nano Banana Pro | $0.134/img (1K/2K) | Alta qualidade, ideal para design de personagens |
+| Geração de imagem | Nano Banana 2 | $0.067/img (1K) | Mais rápido e barato, ideal para storyboards |
+| Geração de vídeo | Veo 3.1 | $0.40/s (1080p com áudio) | Alta qualidade |
+| Geração de vídeo | Veo 3.1 Fast | $0.15/s (1080p com áudio) | Mais rápido e barato |
+| Geração de vídeo | Veo 3.1 Lite | mais baixo | Modelo leve, só AI Studio |
 
-> 💡 **示例**（Gemini）：一个包含 10 个场景（每场景 8 秒）的短视频
-> - 图片：3 张角色设计（Pro）+ 10 张分镜（Flash）= $0.40 + $0.67 = $1.07
-> - 视频：80 秒 × $0.15（Fast 模式）= $12
-> - **总计约 $13**
+> 💡 **Exemplo** (Gemini): um short com 10 cenas (8 s cada)
+> - Imagens: 3 designs de personagem (Pro) + 10 storyboards (Flash) = $0.40 + $0.67 = $1.07
+> - Vídeo: 80 s × $0.15 (modo Fast) = $12
+> - **Total ~$13**
 
-> 其他供应商费用请参考各自官方定价页面，ArcReel 在设置页提供实时费用追踪。
+> Para outros fornecedores, veja as páginas oficiais de preço; o ArcReel oferece rastreio de custo em tempo real na página de settings.
 
 ---
 
-## 第一章：环境准备
+## Capítulo 1: preparação do ambiente
 
-### 1.1 获取图片/视频生成供应商 API 密钥
+### 1.1 Obter API keys de fornecedores de imagem/vídeo
 
-ArcReel 支持多个供应商，**至少配置一个**即可开始使用：
+O ArcReel suporta vários fornecedores; **configure pelo menos um** para começar:
 
-| 供应商 | 获取地址 | 说明 |
+| Fornecedor | Onde obter | Nota |
 |--------|---------|------|
-| **Gemini** (Google) | [AI Studio](https://aistudio.google.com/apikey) | 需付费层级，按 token/查表计费 (USD) |
-| **火山方舟** | [火山引擎控制台](https://console.volcengine.com/ark) | 按 token/张数计费 (CNY) |
-| **Grok** (xAI) | [xAI Console](https://console.x.ai/) | 按张/秒计费 (USD) |
-| **OpenAI** | [OpenAI Platform](https://platform.openai.com/) | 图片按 token、视频按秒计费 (USD) |
-| **Vidu** (生数科技) | [Vidu 平台](https://platform.vidu.com/) | 按积分折算计费 (CNY) |
-| **阿里百炼** (DashScope) | [阿里云百炼控制台](https://bailian.console.aliyun.com) | 全模态：文本 / 图像 / 视频 / TTS (CNY) |
-| **MiniMax** | [MiniMax 开放平台](https://platform.minimaxi.com/console) | 国内站，海外可切换国际站 (CNY) |
-| **可灵 Kling** (快手) | [可灵开放平台](https://klingai.com/dev) | API Key 或双密钥（Access Key + Secret Key）二选一 (CNY) |
+| **Gemini** (Google) | [AI Studio](https://aistudio.google.com/apikey) | Camada paga; billing por token/tabela (USD) |
+| **Volcengine Ark** | [Console Volcengine](https://console.volcengine.com/ark) | Billing por token/imagem (CNY) |
+| **Grok** (xAI) | [xAI Console](https://console.x.ai/) | Billing por imagem/segundo (USD) |
+| **OpenAI** | [OpenAI Platform](https://platform.openai.com/) | Imagem por token, vídeo por segundo (USD) |
+| **Vidu** | [Plataforma Vidu](https://platform.vidu.com/) | Billing por créditos convertidos (CNY) |
+| **Alibaba DashScope** | [Console Bailian](https://bailian.console.aliyun.com) | Multimodal: texto / imagem / vídeo / TTS (CNY) |
+| **MiniMax** | [Plataforma aberta MiniMax](https://platform.minimaxi.com/console) | Site CN; exterior pode usar site internacional (CNY) |
+| **Kling** (Kuaishou) | [Plataforma aberta Kling](https://klingai.com/dev) | API Key ou par de chaves (Access Key + Secret Key) (CNY) |
 
-也可以在部署后通过设置页添加**自定义供应商**（任何 OpenAI 兼容 / Google 兼容 API）。
+Após o deploy, você também pode adicionar **fornecedores customizados** na página de settings (qualquer API compatível com OpenAI / Google).
 
-> ⚠️ API 密钥是敏感信息，请妥善保管，不要分享给他人或上传到公开仓库。
+> ⚠️ API keys são sensíveis — guarde com cuidado; não compartilhe nem envie para repositórios públicos.
 
-### 1.2 获取 Anthropic API 密钥
+### 1.2 Obter API key Anthropic
 
-ArcReel 内置基于 Claude Agent SDK 的 AI 助手，负责剧本创作、智能对话引导等关键环节。
+O ArcReel inclui um assistente de IA baseado no Claude Agent SDK, responsável por criação de roteiro, diálogo inteligente e outras etapas críticas.
 
-**方式 A：使用 Anthropic 官方 API**
+**Opção A: API oficial Anthropic**
 
-1. 访问 [Anthropic Console](https://console.anthropic.com/)
-2. 注册账号并创建 API 密钥
-3. 后续在 Web UI 设置页配置
+1. Acesse o [Anthropic Console](https://console.anthropic.com/)
+2. Crie uma conta e uma API key
+3. Configure depois na página de settings da Web UI
 
-**方式 B：使用第三方 Anthropic 兼容 API**
+**Opção B: API de terceiros compatível com Anthropic**
 
-如果无法直接访问 Anthropic API，可在设置页配置：
+Se não puder acessar a API Anthropic diretamente, configure na página de settings:
 
-- **Base URL** — 填写中转服务或兼容 API 的地址
-- **Model** — 指定使用的模型名称（如 `claude-sonnet-4-6`）
-- 还可分别配置 Haiku / Sonnet / Opus 的默认模型和 Subagent 模型
+- **Base URL** — endereço do serviço proxy ou API compatível
+- **Model** — nome do modelo a usar (ex.: `claude-sonnet-4-6`)
+- Também é possível configurar modelos default de Haiku / Sonnet / Opus e o modelo de Subagent
 
-### 1.3 准备服务器
+### 1.3 Preparar o servidor
 
-**服务器要求：**
+**Requisitos do servidor:**
 
-- 操作系统：推荐 Linux / macOS / WSL2 / Docker；Windows 原生可运行基础流程，但 Bash 沙箱等 POSIX-only 隔离机制会自动降级，生产建议 WSL2 或 Docker Desktop
-- 内存：建议 2GB+
-- 已安装 Docker 和 Docker Compose
+- SO: recomenda-se Linux / macOS / WSL2 / Docker; Windows nativo roda fluxos básicos, mas sandbox Bash e outros isolamentos POSIX-only rebaixam automaticamente; em produção, WSL2 ou Docker Desktop
+- Memória: 2 GB+ recomendado
+- Docker e Docker Compose instalados
 
-**安装 Docker（如未安装）：**
+**Instalar Docker (se ainda não tiver):**
 
 ```bash
 # Ubuntu / Debian
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER
 
-# 重新登录后验证
+# Relogue e verifique
 docker --version
 docker compose version
 ```
 
 ---
 
-## 第二章：部署服务
+## Capítulo 2: deploy do serviço
 
-### 2.1 下载并启动
+### 2.1 Baixar e subir
 
-#### 方式 A：默认部署（SQLite，推荐入门）
+#### Opção A: deploy padrão (SQLite, recomendado para começar)
 
 ```bash
-# 1. 克隆项目
+# 1. Clonar o projeto
 git clone https://github.com/ArcReel/ArcReel.git
 cd ArcReel/deploy
 
-# 2. 创建环境变量文件
+# 2. Criar o arquivo de variáveis de ambiente
 cp .env.example .env
 
-# 3. 启动服务
+# 3. Subir o serviço
 docker compose up -d
 ```
 
-#### 方式 B：生产部署（PostgreSQL，推荐正式使用）
+#### Opção B: deploy de produção (PostgreSQL, recomendado para uso formal)
 
 ```bash
 cd ArcReel/deploy/production
 
-# 创建环境变量文件（需设置 POSTGRES_PASSWORD）
+# Criar o arquivo de variáveis de ambiente (defina POSTGRES_PASSWORD)
 cp .env.example .env
 
 docker compose up -d
 ```
 
-等待容器启动完成后，在浏览器访问 **http://你的服务器IP:1241**
+Quando o container estiver pronto, abra no browser **http://IP-do-seu-servidor:1241**
 
-### 2.2 首次配置
+### 2.2 Configuração inicial
 
-1. 使用默认账号登录（用户名 `admin`，密码在 `.env` 中通过 `AUTH_PASSWORD` 设置；未设置则首次启动时自动生成并回写到 `.env`）
-2. 进入 **设置页**（`/app/settings`）
-3. 配置 **AI 助手凭据**（驱动 AI 助手），支持 Anthropic 官方及多种兼容供应商，可自定义 Base URL 与模型
-4. 配置至少一个图片/视频**供应商 API Key / 凭据**（Gemini / 火山方舟 / Grok / OpenAI / Vidu / 阿里百炼 / MiniMax / 可灵），或添加自定义供应商
-5. 根据需要调整模型选择、速率限制等参数
+1. Login com a conta padrão (usuário `admin`; a senha vem de `AUTH_PASSWORD` em `.env`; se não estiver definida, é gerada no primeiro start e gravada de volta em `.env`)
+2. Entre na **página de settings** (`/app/settings`)
+3. Configure as **credenciais do assistente de IA** (impulsionam o assistente), com suporte a Anthropic oficial e vários fornecedores compatíveis; Base URL e modelo customizáveis
+4. Configure a **API Key / credenciais** de pelo menos um fornecedor de imagem/vídeo (Gemini / Volcengine Ark / Grok / OpenAI / Vidu / Alibaba DashScope / MiniMax / Kling), ou adicione um fornecedor customizado
+5. Ajuste escolha de modelo, limites de taxa etc. conforme necessário
 
-> 💡 所有配置项都可以在设置页修改，无需手动编辑配置文件。
-
----
-
-## 第三章：完整流程
-
-以下步骤在 Web UI 工作台中完成。
-
-### 3.1 创建项目
-
-1. 在项目列表页点击「新建项目」
-2. 输入项目名称（如「我的小说」）
-3. 上传小说文本文件（.txt 格式）
-
-> 💡 除小说原文外，也可直接导入**成品剧本**（screenplay），系统会逐字保留台词与画外音、按作者人物表建角色。若要制作带货短片，可在新建项目时选择**广告/短片**类型，按目标总时长生成带货镜头脚本。
-
-### 3.2 生成分镜剧本
-
-在项目工作台右侧打开 AI 助手面板，通过对话让助手生成剧本：
-
-- AI 会自动分析小说内容，将其拆分为适合视频的片段
-- 每个片段包含画面描述、出场角色、重要道具/场景（线索）
-
-**审核点**：检查剧本结构是否合理，角色和线索是否识别正确。
-
-### 3.3 生成角色设计图
-
-AI 为每个角色生成设计图，用于保持后续所有场景中的角色外观一致。
-
-**审核点**：检查角色形象是否符合小说描述，不满意可重新生成。
-
-### 3.4 生成线索设计图
-
-AI 为重要道具和场景元素（如信物、特定地点）生成参考图。
-
-**审核点**：检查线索设计是否符合预期。
-
-### 3.5 生成分镜图片
-
-AI 根据剧本生成每个场景的静态图片，自动引用角色和线索设计图确保一致性。
-
-**审核点**：检查场景构图、角色一致性、氛围是否正确。
-
-### 3.6 生成视频片段
-
-分镜图片作为起始帧，通过所选视频供应商（Veo 3.1 / Seedance / Grok / Sora 2 / Vidu Q3 / 阿里百炼 / MiniMax / 可灵 等）生成动态视频片段。可用时长依所选供应商而定，部分仅支持固定档位（如 MiniMax 为 6 / 10 秒）。
-
-生成任务进入异步任务队列，你可以在任务监控面板实时查看进度。Image / Video / Audio 通道独立并发，RPM 限速确保不超 API 配额。
-
-**审核点**：预览每个视频片段，不满意可单独重新生成。
-
-### 3.7 生成旁白配音（可选）
-
-说书 / 广告模式可为分镜逐段生成旁白配音：在设置页配置 TTS 供应商（阿里百炼 Qwen3 TTS 或任意 OpenAI 兼容 TTS）及音色、语速，再逐段试听、一键补齐全集，也可直接让 AI 助手一句话生成全集。配音会随剪映草稿导出为逐段旁白音轨。
-
-### 3.8 合成最终视频
-
-所有片段通过 FFmpeg 拼接，添加转场效果和背景音乐，输出最终视频。
-
-默认输出 **9:16 竖屏**格式，适合发布到短视频平台。
+> 💡 Todos os itens de configuração podem ser alterados na página de settings, sem editar arquivos de config à mão.
 
 ---
 
-## 第四章：进阶技巧
+## Capítulo 3: fluxo completo
 
-### 4.1 版本历史与回滚
+Os passos abaixo são feitos na estação de trabalho da Web UI.
 
-每次重新生成素材时，系统自动保存历史版本。在工作台的时间线视图中，可以浏览历史版本并一键回滚。
+### 3.1 Criar projeto
 
-### 4.2 控制费用
+1. Na lista de projetos, clique em «Novo projeto»
+2. Informe o nome do projeto (ex.: «Meu romance»)
+3. Faça upload do arquivo de texto do romance (.txt)
 
-**查看费用统计：**
+> 💡 Além do romance original, você também pode importar um **roteiro finalizado** (screenplay); o sistema preserva falas e voice-over literalmente e cria personagens pela tabela de elenco do autor. Para shorts de venda, escolha o tipo **anúncio/curta** ao criar o projeto e gere o script de takes de venda pela duração total alvo.
 
-在设置页可查看 API 调用次数和费用明细。
+### 3.2 Gerar o roteiro de storyboard
 
-**减少开支的技巧：**
+Abra o painel do assistente de IA à direita da estação de trabalho do projeto e, por diálogo, peça a geração do roteiro:
 
-- 仔细审核每个阶段的输出，减少返工
-- 先生成少量场景测试效果，满意后再批量生成
-- 视频生成使用 Fast 模式可节省约 60% 费用
-- 分镜图使用 Flash 模型，角色设计图使用 Pro 模型
+- A IA analisa o romance e o divide em segmentos adequados a vídeo
+- Cada segmento inclui descrição visual, personagens em cena e props/cenas importantes (pistas)
 
-### 4.3 项目导入/导出
+**Ponto de revisão**: confira se a estrutura do roteiro é razoável e se personagens e pistas foram identificados corretamente.
 
-项目支持打包归档，方便备份和迁移：
+### 3.3 Gerar designs de personagens
 
-- **导出**：将整个项目（含所有素材）打包为归档文件
-- **导入**：从归档文件恢复项目
+A IA gera um design para cada personagem, usado para manter a aparência consistente em todas as cenas posteriores.
 
----
+**Ponto de revisão**: confira se a imagem do personagem bate com a descrição do romance; se não gostar, regenere.
 
-## 第五章：常见问题
+### 3.4 Gerar designs de pistas
 
-### Q: Docker 启动失败？
+A IA gera imagens de referência para props e elementos de cena importantes (ex.: objeto-símbolo, local específico).
 
-1. 确认 Docker 服务正在运行：`systemctl status docker`
-2. 检查端口 1241 是否被占用：`ss -tlnp | grep 1241`
-3. 查看容器日志：`docker compose logs`（在对应的 `deploy/` 或 `deploy/production/` 目录下执行）
+**Ponto de revisão**: confira se o design da pista está como esperado.
 
-### Q: API 调用失败？
+### 3.5 Gerar imagens de storyboard
 
-1. 确认设置页中对应供应商的 API Key 填写正确
-2. 确认所选模型在该供应商账号下已开通对应能力（图片/视频生成有时需付费层级或单独申请）
-3. 检查服务器网络是否可以访问对应供应商的 API 服务
-4. 在供应商控制台查看 API 使用量是否超限
+A IA gera a imagem estática de cada cena a partir do roteiro, referenciando automaticamente os designs de personagens e pistas para consistência.
 
-### Q: 角色在不同场景中长得不一样？
+**Ponto de revisão**: confira composição da cena, consistência de personagens e atmosfera.
 
-1. 确保先生成角色设计图
-2. 检查角色设计图质量，不满意要先重新生成
-3. 系统会自动使用角色设计图作为参考，确保后续场景一致
+### 3.6 Gerar clipes de vídeo
 
-### Q: 视频生成很慢？
+As imagens de storyboard servem de frame inicial; o fornecedor de vídeo escolhido (Veo 3.1 / Seedance / Grok / Sora 2 / Vidu Q3 / Alibaba DashScope / MiniMax / Kling etc.) gera o clipe dinâmico. A duração disponível depende do fornecedor; alguns só suportam faixas fixas (ex.: MiniMax 6 / 10 s).
 
-视频生成通常需要 1-3 分钟/片段，这是正常的。影响因素：
+As tarefas entram na fila assíncrona; você acompanha o progresso em tempo real no painel de monitoramento. Os canais Image / Video / Audio concorrem de forma independente; o rate limit RPM evita estourar a cota da API.
 
-- 视频时长（4 秒 vs 8 秒）
-- API 服务器负载
-- 网络状况
+**Ponto de revisão**: pré-visualize cada clipe; se não gostar, regenere individualmente.
 
-任务队列支持并发处理，多个视频片段可同时生成。
+### 3.7 Gerar narração por voz (opcional)
 
-### Q: 生成中断了怎么办？
+Nos modos narração / anúncio, é possível gerar narração por segmento: configure o fornecedor TTS na página de settings (Alibaba DashScope Qwen3 TTS ou qualquer TTS compatível com OpenAI), timbre e velocidade; ouça por segmento, complete o episódio em um clique, ou peça ao assistente de IA em uma frase. A narração segue na exportação CapCut/Jianying como trilha de narração por segmento.
 
-任务队列支持断点续传。重新触发生成时，系统会自动跳过已完成的片段，只处理剩余部分。
+### 3.8 Compor o vídeo final
+
+Todos os clipes são concatenados com FFmpeg, com transições e música de fundo, gerando o vídeo final.
+
+A saída padrão é **9:16 vertical**, adequada a plataformas de short video.
 
 ---
 
-## 下一步
+## Capítulo 4: técnicas avançadas
 
-恭喜你完成了入门教程！接下来你可以：
+### 4.1 Histórico de versões e rollback
 
-- 💰 查看 [Google GenAI 费用说明](google-genai-docs/Google视频&图片生成费用参考.md) 和 [火山方舟费用说明](ark-docs/火山方舟费用参考.md) 了解详细定价
-- 🐛 遇到问题？提交 [Issue](https://github.com/ArcReel/ArcReel/issues) 反馈
-- 💬 扫码加入飞书交流群，获取帮助和最新动态：
+A cada regeneração de mídia, o sistema salva uma versão histórica. Na visão de timeline da estação de trabalho, você navega as versões e faz rollback em um clique.
 
-<img src="assets/feishu-qr.png" alt="飞书交流群二维码" width="280">
+### 4.2 Controlar custos
 
-如果觉得项目有用，请给个 ⭐ Star 支持一下！
+**Ver estatísticas de custo:**
+
+Na página de settings, confira contagem de chamadas de API e detalhamento de custo.
+
+**Dicas para gastar menos:**
+
+- Revise com cuidado a saída de cada estágio, reduzindo retrabalho
+- Gere primeiro poucas cenas para testar o efeito; se estiver bom, gere em lote
+- No vídeo, o modo Fast economiza cerca de 60% do custo
+- Storyboards com modelo Flash; designs de personagem com modelo Pro
+
+### 4.3 Importação/exportação de projeto
+
+O projeto pode ser empacotado em arquivo, para backup e migração:
+
+- **Exportar**: empacota o projeto inteiro (com toda a mídia) em um arquivo de archive
+- **Importar**: restaura o projeto a partir do archive
+
+---
+
+## Capítulo 5: perguntas frequentes
+
+### P: Docker não sobe?
+
+1. Confirme que o serviço Docker está rodando: `systemctl status docker`
+2. Verifique se a porta 1241 está ocupada: `ss -tlnp | grep 1241`
+3. Veja os logs do container: `docker compose logs` (no diretório `deploy/` ou `deploy/production/` correspondente)
+
+### P: Chamada de API falhou?
+
+1. Confirme que a API Key do fornecedor correspondente está correta na página de settings
+2. Confirme que o modelo escolhido tem a capacidade necessária na conta daquele fornecedor (geração de imagem/vídeo às vezes exige camada paga ou solicitação à parte)
+3. Verifique se a rede do servidor alcança a API do fornecedor
+4. No console do fornecedor, confira se o uso da API estourou o limite
+
+### P: O personagem aparece diferente em cenas diferentes?
+
+1. Garanta que o design do personagem foi gerado primeiro
+2. Confira a qualidade do design; se não estiver boa, regenere antes
+3. O sistema usa automaticamente o design do personagem como referência para manter as cenas posteriores consistentes
+
+### P: A geração de vídeo está lenta?
+
+A geração de vídeo costuma levar 1–3 minutos por clipe — é normal. Fatores:
+
+- Duração do vídeo (4 s vs 8 s)
+- Carga do servidor da API
+- Condições de rede
+
+A fila de tarefas suporta processamento concorrente; vários clipes podem gerar ao mesmo tempo.
+
+### P: A geração foi interrompida — e agora?
+
+A fila de tarefas suporta retomada. Ao re-disparar a geração, o sistema pula automaticamente os clipes já concluídos e processa só o restante.
+
+---
+
+## Próximos passos
+
+Parabéns por concluir o tutorial de introdução! Em seguida você pode:
+
+- 💰 Ver [custos Google GenAI](google-genai-docs/Google视频&图片生成费用参考.md) e [custos Volcengine Ark](ark-docs/火山方舟费用参考.md) para preços detalhados
+- 🐛 Problemas? Abra um [Issue](https://github.com/ArcReel/ArcReel/issues)
+- 💬 Escaneie o QR e entre no grupo Feishu para ajuda e novidades:
+
+<img src="assets/feishu-qr.png" alt="QR do grupo Feishu" width="280">
+
+Se o projeto for útil, deixe uma ⭐ Star!

@@ -1,53 +1,53 @@
 ## ADDED Requirements
 
-### Requirement: 场景/道具缩略图栈展示
+### Requirement: Pilha de miniaturas de cenas/props
 
-`ReferencesSection` SHALL 通过 `ClueStack` 组件展示当前分镜关联的场景（`sceneNames`）与道具（`propNames`）图片缩略图，形状为圆角方形，叠放样式与角色头像栈一致，最多显示 4 个，超出部分以 `+n` 溢出徽章表示。
+`ReferencesSection` SHALL exibir, via componente `ClueStack`, miniaturas das imagens de cenas (`sceneNames`) e props (`propNames`) associadas ao storyboard atual, em formato quadrado arredondado, empilhadas no mesmo estilo da pilha de avatares de personagens, mostrando no máximo 4, com o excedente indicado por badge de overflow `+n`.
 
-#### Scenario: 有资产图片时展示缩略图
+#### Scenario: Exibir miniatura quando o ativo tem imagem
 
-- **WHEN** 场景对象存在 `scene_sheet` 路径，或道具对象存在 `prop_sheet` 路径
-- **THEN** 展示对应图片，形状为圆角方形（`rounded`），尺寸与角色头像一致（`h-7 w-7`）
+- **WHEN** o objeto de cena possui caminho `scene_sheet`, ou o objeto de prop possui caminho `prop_sheet`
+- **THEN** a imagem correspondente é exibida em formato quadrado arredondado (`rounded`), com tamanho igual ao avatar de personagem (`h-7 w-7`)
 
-#### Scenario: 无资产图片时展示首字母占位
+#### Scenario: Placeholder com inicial quando o ativo não tem imagem
 
-- **WHEN** 场景/道具对象不存在对应的 sheet 路径
-- **THEN** 展示资产名称首字母色块（圆角方形），颜色由名称哈希值确定，与角色头像的 fallback 规则一致
+- **WHEN** o objeto de cena/prop não possui o caminho de sheet correspondente
+- **THEN** é exibido um bloco colorido com a inicial do nome do ativo (quadrado arredondado), com cor determinada pelo hash do nome, seguindo a mesma regra de fallback dos avatares de personagem
 
-#### Scenario: 分镜无关联场景/道具时不渲染
+#### Scenario: Não renderizar quando o storyboard não tem cenas/props associadas
 
-- **WHEN** `sceneNames` 与 `propNames` 均为空
-- **THEN** 缩略图栈不渲染（`ClueStack` 返回 null）
+- **WHEN** `sceneNames` e `propNames` estão ambos vazios
+- **THEN** a pilha de miniaturas não é renderizada (`ClueStack` retorna null)
 
-#### Scenario: 超过 4 个资产时显示溢出数量
+#### Scenario: Exibir quantidade de overflow quando há mais de 4 ativos
 
-- **WHEN** 关联场景 + 道具总数超过 4 个
-- **THEN** 只显示前 4 个缩略图，后续以 `+n` 灰色徽章表示剩余数量
+- **WHEN** o total de cenas + props associadas excede 4
+- **THEN** apenas as 4 primeiras miniaturas são exibidas; as restantes são representadas por um badge cinza `+n`
 
-### Requirement: 资产悬停浮窗
+### Requirement: Popover de hover do ativo
 
-鼠标悬停在场景/道具缩略图（`RefThumbnail`）上时 SHALL 弹出浮窗（`RefPopover`），显示资产图片、名称、类型标签（场景/道具）及描述摘要，与角色浮窗布局一致。
+Ao passar o mouse sobre a miniatura de cena/prop (`RefThumbnail`), SHALL aparecer um popover (`RefPopover`) com a imagem do ativo, nome, etiqueta de tipo (cena/prop) e resumo da descrição, com layout consistente com o popover de personagem.
 
-#### Scenario: 悬停展示资产详情
+#### Scenario: Hover exibe detalhes do ativo
 
-- **WHEN** 用户将鼠标悬停在某个场景/道具缩略图上
-- **THEN** 弹出浮窗，左侧显示资产图片（无图则图标占位），右侧显示资产名称和 description 首行摘要
+- **WHEN** o usuário passa o mouse sobre a miniatura de uma cena/prop
+- **THEN** aparece um popover com a imagem do ativo à esquerda (ou ícone placeholder se não houver imagem) e, à direita, o nome do ativo e o resumo da primeira linha de description
 
-#### Scenario: 浮窗显示场景标签
+#### Scenario: Popover exibe etiqueta de cena
 
-- **WHEN** 浮窗展示的资产 `kind` 为 `"scene"`
-- **THEN** 名称旁显示"场景"标签（amber 色调）
+- **WHEN** o ativo exibido no popover tem `kind` igual a `"scene"`
+- **THEN** ao lado do nome é exibida a etiqueta "Cena" (tom amber)
 
-#### Scenario: 浮窗显示道具标签
+#### Scenario: Popover exibe etiqueta de prop
 
-- **WHEN** 浮窗展示的资产 `kind` 为 `"prop"`
-- **THEN** 名称旁显示"道具"标签（emerald 色调）
+- **WHEN** o ativo exibido no popover tem `kind` igual a `"prop"`
+- **THEN** ao lado do nome é exibida a etiqueta "Prop" (tom emerald)
 
-### Requirement: 角色浮窗显示"角色"类型标签
+### Requirement: Popover de personagem exibe etiqueta de tipo "Personagem"
 
-角色缩略图（`RefThumbnail`，`kind` 为 `"character"`）的浮窗 SHALL 在角色名称旁显示"角色"类型标签，与场景/道具浮窗的标签风格统一，便于区分实体类型。
+O popover da miniatura de personagem (`RefThumbnail`, `kind` igual a `"character"`) SHALL exibir a etiqueta de tipo "Personagem" ao lado do nome, no mesmo estilo das etiquetas de cena/prop, para facilitar a distinção do tipo de entidade.
 
-#### Scenario: 悬停角色头像显示"角色"标签
+#### Scenario: Hover no avatar de personagem exibe etiqueta "Personagem"
 
-- **WHEN** 用户将鼠标悬停在角色头像上
-- **THEN** 浮窗中角色名称旁显示"角色"标签（indigo 色调）
+- **WHEN** o usuário passa o mouse sobre o avatar de um personagem
+- **THEN** no popover, ao lado do nome do personagem, é exibida a etiqueta "Personagem" (tom indigo)

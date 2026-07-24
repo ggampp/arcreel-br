@@ -1,34 +1,34 @@
 ## ADDED Requirements
 
-### Requirement: 分镜时长可交互切换
+### Requirement: Duração do storyboard com troca interativa
 
-SegmentCard 头部的时长展示元素 SHALL 支持用户点击后弹出选择器，在 4s、6s、8s 三个选项之间切换，选中后通过 `onUpdatePrompt` 回调将新值写入后端，并在保存完成后刷新剧集总时长。
+O elemento de exibição de duração no cabeçalho do SegmentCard SHALL permitir que o usuário clique e abra um seletor para alternar entre as três opções 4s, 6s e 8s; após a seleção, o novo valor é gravado no backend via callback `onUpdatePrompt` e, ao concluir o salvamento, a duração total do episódio é atualizada.
 
-#### Scenario: 点击时长徽章弹出选择器
+#### Scenario: Clicar no badge de duração abre o seletor
 
-- **WHEN** 用户点击 SegmentCard 头部的时长徽章（如"4s"）
-- **THEN** 弹出 Popover，列出"4s"、"6s"、"8s"三个按钮，当前值高亮显示
+- **WHEN** o usuário clica no badge de duração no cabeçalho do SegmentCard (ex.: "4s")
+- **THEN** abre um Popover listando os três botões "4s", "6s" e "8s", com o valor atual em destaque
 
-#### Scenario: 选择新时长并保存
+#### Scenario: Selecionar nova duração e salvar
 
-- **WHEN** 用户在弹出的选择器中点击某个时长选项（如"6s"）
-- **THEN** Popover 关闭，时长徽章立即显示新值"6s"，并通过 `onUpdatePrompt(segmentId, "duration_seconds", 6)` 触发后端保存
+- **WHEN** o usuário clica em uma opção de duração no seletor (ex.: "6s")
+- **THEN** o Popover fecha, o badge mostra imediatamente "6s" e dispara o salvamento no backend via `onUpdatePrompt(segmentId, "duration_seconds", 6)`
 
-#### Scenario: 取消选择
+#### Scenario: Cancelar seleção
 
-- **WHEN** 用户点击 Popover 以外区域
-- **THEN** Popover 关闭，时长徽章保持原值不变
+- **WHEN** o usuário clica fora do Popover
+- **THEN** o Popover fecha e o badge de duração mantém o valor original
 
-#### Scenario: 无 onUpdatePrompt 时只读
+#### Scenario: Somente leitura sem onUpdatePrompt
 
-- **WHEN** SegmentCard 未提供 `onUpdatePrompt` prop（只读模式）
-- **THEN** 时长徽章不可点击，外观与只读状态一致（无 hover 效果）
+- **WHEN** o SegmentCard não fornece a prop `onUpdatePrompt` (modo somente leitura)
+- **THEN** o badge de duração não é clicável e a aparência é a de estado somente leitura (sem efeito de hover)
 
-### Requirement: 剧集总时长联动更新
+### Requirement: Atualização vinculada da duração total do episódio
 
-TimelineCanvas 头部显示的总时长 SHALL 在任意分镜时长变更并刷新项目数据后自动更新，无需额外操作。
+A duração total exibida no cabeçalho do TimelineCanvas SHALL atualizar automaticamente após qualquer mudança de duração de storyboard e o refresh dos dados do projeto, sem operação extra.
 
-#### Scenario: 修改分镜时长后总时长更新
+#### Scenario: Duração total atualiza após alterar duração do storyboard
 
-- **WHEN** 用户修改某分镜时长，后端保存成功，`refreshProject()` 完成
-- **THEN** TimelineCanvas 头部显示的总时长重新从所有分镜的 `duration_seconds` 求和，反映最新值
+- **WHEN** o usuário altera a duração de um storyboard, o backend salva com sucesso e `refreshProject()` conclui
+- **THEN** a duração total no cabeçalho do TimelineCanvas é recalculada somando `duration_seconds` de todos os storyboards, refletindo o valor mais recente

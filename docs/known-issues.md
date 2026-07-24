@@ -1,50 +1,50 @@
-# 已知问题
+# Problemas conhecidos
 
-多供应商视频生成接入（#98）过程中发现的存量技术债，不影响功能正确性，记录以便后续迭代。
-
----
-
-## 1. VideoGenerationRequest 参数膨胀
-
-**位置：** `lib/video_backends/base.py` — `VideoGenerationRequest`
-
-**现状：** 共享 dataclass 中混入了后端特有字段（`negative_prompt` 为 Veo 特有，`service_tier`/`seed` 为 Seedance 特有），靠注释"各 Backend 忽略不支持的字段"约定。
-
-**评估：** 仅 3 个后端 3 个特有字段，引入 per-backend config 类的复杂度不值得。待第 4 个后端接入时再重构。
+Dívida técnica acumulada descoberta durante a integração multi-fornecedor de geração de vídeo (#98). Não afeta a correção funcional; registrado para iterações futuras.
 
 ---
 
-## 2. UsageRepository finish_call 双次 DB 往返
+## 1. Inflação de parâmetros de VideoGenerationRequest
 
-**位置：** `lib/db/repositories/usage_repo.py` — `finish_call()`
+**Local:** `lib/video_backends/base.py` — `VideoGenerationRequest`
 
-**现状：** 先 `SELECT` 读取整行（取 `provider`、`call_type` 等字段计算费用），再 `UPDATE` 写回结果。对每个任务两次串行数据库往返。
+**Situação:** o dataclass compartilhado mistura campos específicos de backend (`negative_prompt` é próprio do Veo; `service_tier`/`seed` são próprios do Seedance), com o acordo por comentário de que «cada Backend ignora campos não suportados».
 
-**评估：** 视频生成耗时分钟级，DB 往返影响极小。消除需改动 3 个调用方（MediaGenerator、TextGenerator、UsageTracker），风险不对称。
-
----
-
-## 3. UsageRepository.finish_call() 参数膨胀
-
-**位置：** `lib/db/repositories/usage_repo.py` — `finish_call()`，`lib/usage_tracker.py` — `finish_call()`
-
-**现状：** `finish_call()` 已有 9 个 keyword 参数，且 `UsageTracker.finish_call()` 1:1 镜像透传。
-
-**评估：** 与 Issue 2 耦合，单独改收益低。待 Issue 2 一并重构。
+**Avaliação:** só 3 backends e 3 campos específicos; a complexidade de introduzir classes de config per-backend não compensa. Refatorar quando o 4º backend entrar.
 
 ---
 
-## 4. 剧本生成任务对模型输出 token 上限有强约束
+## 2. UsageRepository.finish_call com ida e volta dupla no DB
 
-**位置：** `lib/script_generator.py`、`lib/text_backends/`
+**Local:** `lib/db/repositories/usage_repo.py` — `finish_call()`
 
-**现状：** 大型 JSON 剧本（22+ 场景）约需 14K–16K 输出 token。`TextGenerationRequest.max_output_tokens` 已支持并在 `SCRIPT_MAX_OUTPUT_TOKENS = 32000` 处显式传入，但各模型的**硬上限**仍会截断：
+**Situação:** primeiro `SELECT` lê a linha inteira (para pegar `provider`, `call_type` etc. e calcular o custo), depois `UPDATE` grava o resultado. Duas idas e voltas seriais ao banco por tarefa.
 
-- `doubao-seed-1-8-251228`：输出硬上限 ~8192，不满足剧本生成需求
-- `gemini-3-flash-preview` / `gemini-2.5-pro`：默认上限足够（≥32K）
-- `gpt-5.4` 系列：默认上限足够
-- `doubao-seed-2.x` 系列：输出上限较高（依模型）
+**Avaliação:** a geração de vídeo é da ordem de minutos; o impacto de ida e volta ao DB é mínimo. Eliminar exigiria alterar 3 callers (MediaGenerator, TextGenerator, UsageTracker) — risco assimétrico.
 
-**建议：** 在 `/app/settings` 为 SCRIPT 任务配置**输出上限 ≥16K 的模型**。若必须使用 doubao-seed-1-8-251228，则需将场景数控制在 15 个以内以规避截断。
+---
 
-**后续增强（未做）：** 可在 `lib/config/registry.py` 的 `PROVIDER_REGISTRY` 为每个模型声明 `max_output_tokens` 能力字段，运行时按 `min(request, model_limit)` clamp 并 `logger.warning`，在 UI 选择模型时给予提示。
+## 3. Inflação de parâmetros de UsageRepository.finish_call()
+
+**Local:** `lib/db/repositories/usage_repo.py` — `finish_call()`, `lib/usage_tracker.py` — `finish_call()`
+
+**Situação:** `finish_call()` já tem 9 parâmetros keyword, e `UsageTracker.finish_call()` repassa 1:1 em espelho.
+
+**Avaliação:** acoplado ao Issue 2; mudar sozinho tem baixo retorno. Refatorar junto com o Issue 2.
+
+---
+
+## 4. Tarefas de geração de roteiro têm restrição forte ao teto de tokens de saída do modelo
+
+**Local:** `lib/script_generator.py`, `lib/text_backends/`
+
+**Situação:** roteiros JSON grandes (22+ cenas) precisam de cerca de 14K–16K tokens de saída. `TextGenerationRequest.max_output_tokens` já é suportado e passado explicitamente em `SCRIPT_MAX_OUTPUT_TOKENS = 32000`, mas o **teto duro** de cada modelo ainda pode truncar:
+
+- `doubao-seed-1-8-251228`: teto duro de saída ~8192, insuficiente para geração de roteiro
+- `gemini-3-flash-preview` / `gemini-2.5-pro`: teto default suficiente (≥32K)
+- série `gpt-5.4`: teto default suficiente
+- série `doubao-seed-2.x`: teto de saída mais alto (varia por modelo)
+
+**Sugestão:** em `/app/settings`, configure para tarefas SCRIPT um **modelo com teto de saída ≥16K**. Se for obrigatório usar doubao-seed-1-8-251228, mantenha o número de cenas em ≤15 para evitar truncamento.
+
+**Melhoria futura (não feita):** declarar em `PROVIDER_REGISTRY` de `lib/config/registry.py` um campo de capacidade `max_output_tokens` por modelo; em runtime fazer clamp `min(request, model_limit)` com `logger.warning`, e avisar na UI ao escolher o modelo.

@@ -2,19 +2,19 @@
 status: accepted
 ---
 
-# 产品一致性双层锚点：用户原图为验收锚点，标准化产品 sheet 为可选派生参考
+# Âncora de fidelidade de produto em duas camadas: imagem original do usuário é âncora de aceitação; sheet padronizado de produto é referência derivada opcional
 
-带货成片中的产品必须忠实于真品（失真即虚假宣传风险），但用户上传的产品图常见乱背景、光线差、角度缺。现有三类资产（character/scene/prop）以 AI 生成的 sheet 为下游一致性锚点，而 AI 重绘对产品意味着 logo、包装文字、材质纹理的漂移在源头固化。决定：产品资产采用双层——用户原图必有且永远是保真验收锚点，标准化产品 sheet 为可选的净化派生参考，且必须经人工确认才进入下游。
+O produto no material de venda precisa ser fiel ao real (distorção = risco de publicidade enganosa), mas as imagens de produto enviadas pelo usuário costumam ter fundo bagunçado, luz ruim e ângulos faltando. Os três tipos de asset atuais (character/scene/prop) usam sheet gerado por IA como âncora de consistência downstream; redesenho por IA de produto fixa na origem o desvio de logo, texto da embalagem e textura do material. Decidimos: asset de produto em duas camadas — a imagem original do usuário é obrigatória e é sempre a âncora de aceitação de fidelidade; o sheet padronizado de produto é referência derivada opcional de limpeza, e só entra no downstream após confirmação humana.
 
-## 决定
+## Decisão
 
-- **原图为锚点**：产品资产持有多张用户上传原图（`reference_images`），是「成片产品忠实于真品」的验收标准；翻转此前「用户 ad-hoc 上传参考图为范围外」的限定，原图直接进入下游生成参考。
-- **product sheet 可选、人工闸门**：产品图上传入口提供「生成标准产品参考图」勾选，触发标准化多角度 sheet 生成（走资产生成队列，资产页审核/重生成）；agent 工作流在分镜开工前安排用户过目。AI 重绘的漂移风险由「sheet 必经确认」闸门控制，未确认不投入下游。
-- **注入二元，无「弱注入」**：镜头以 `products_in_shot`（按名字引用）标记，非空即产品镜头——产品参考全量注入、排序绝对优先、附高保真指令；氛围镜头零产品图。参考图是强 conditioning，「给图又求别太像」机制上自相矛盾且引发漂移；画风统一由项目级 style 机制承载，不借产品图实现。
-- **视频层二次锁定先用参考注入**：产品镜头在支持参考输入的视频后端将产品图注入视频请求（零额外图像成本，支持面宽）；首尾帧锚定为 capability-gated 后续增强（管线槽位已存在），实测漂移不可接受时提级。
-- **产品为第 4 个 ASSET_SPECS 条目**：spec 抽象正式扩展列表字段能力（多张原图、卖点列表），属原则性扩展而非产品特例；暂不进入全局资产库（单图列模型不兼容，跨项目复用为后续工作）。
+- **Original como âncora**: o asset de produto mantém várias imagens originais enviadas pelo usuário (`reference_images`); é o critério de aceitação de «produto no material fiel ao real»; reverte a limitação anterior «upload ad-hoc de referência do usuário fora de escopo» — o original entra direto na referência de geração downstream.
+- **product sheet opcional, portão humano**: a entrada de upload de imagem de produto oferece o checkbox «gerar imagem de referência padrão do produto», que dispara geração de sheet multi-ângulo padronizado (fila de geração de asset; revisão/regeneração na página de assets); o fluxo do agent agenda o olhar do usuário antes de começar o storyboard. O risco de desvio do redesenho por IA é controlado pelo portão «sheet só após confirmação»; sem confirmação, não entra no downstream.
+- **Injeção binária, sem «injeção fraca»**: o shot se marca com `products_in_shot` (referência por nome); não vazio = shot de produto — referência de produto injetada por completo, ordenação com prioridade absoluta, instrução de alta fidelidade anexa; shot de atmosfera zero imagens de produto. Imagem de referência é conditioning forte; «dar a imagem e pedir para não parecer demais» é mecanicamente contraditório e causa desvio; unificação de estilo fica no mecanismo de style do projeto, não via imagem de produto.
+- **Segunda trava na camada de vídeo: primeiro injeção de referência**: em shot de produto, backends de vídeo que suportam entrada de referência injetam a imagem do produto no request de vídeo (zero custo extra de imagem, superfície de suporte ampla); âncora de frame inicial/final como reforço capability-gated futuro (o slot da pipeline já existe), elevando se o desvio medido for inaceitável.
+- **Produto como 4º item de ASSET_SPECS**: a abstração de spec estende formalmente a capacidade de campos de lista (várias originais, lista de selling points) — extensão de princípio, não caso especial de produto; por ora não entra na biblioteca global de assets (o modelo de coluna de imagem única é incompatível; reutilização cross-projeto é trabalho futuro).
 
 ## Consequences
 
-- 这是首个以「多张用户上传图」为核心、且上传图直接进入下游参考的资产类型；上传保存时压缩策略（normalize_uploaded_image 的 2MB/q85 阈值）与锚点纯度存在张力，实现时需单独评估（提高质量阈值或保留原件）——注意与参考上传副本压缩（ADR 0012，发送时、视觉无损档）是两个独立环节。
-- 有 sheet 时下游注入集合为「sheet 多角度 + 原图压阵」，精确配比留实测调优，不在设计层固定。
+- É o primeiro tipo de asset centrado em «várias imagens enviadas pelo usuário» e com a imagem de upload entrando direto na referência downstream; a política de compressão na gravação do upload (limites 2MB/q85 de normalize_uploaded_image) tensiona a pureza da âncora — na implementação avaliar à parte (subir o teto de qualidade ou manter o original). Atenção: é etapa independente da compressão da cópia de upload de referência (ADR 0012, no envio, faixa visualmente lossless).
+- Com sheet, o conjunto de injeção downstream é «vários ângulos do sheet + original como reserva»; a proporção exata fica para afinar com medição real, sem fixar na camada de desenho.

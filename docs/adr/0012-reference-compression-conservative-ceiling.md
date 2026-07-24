@@ -2,24 +2,24 @@
 status: accepted
 ---
 
-# 参考图压缩用保守通用上限 + 被动 413，只动上传副本
+# Compressão de imagens de referência: teto geral conservador + 413 passivo; só a cópia de upload
 
-I2I / I2V / R2V 场景常把多张体积较大的资产图（character/scene/prop sheet、上一张分镜图、参考图）作为参考图发送给供应商，base64 内嵌后总请求体易超出各家上限而调用失败。决定在 `media_generator` 咽喉层（所有生成的唯一汇流点）对**参考上传副本**做主动压缩 + 预检降档，并保留一道被动 413 兜底；压缩逻辑集中在 `lib/reference_compression.py`，只处理发送后即删除的临时副本。
+Em cenários I2I / I2V / R2V costuma-se enviar várias imagens de asset grandes (sheets de character/scene/prop, storyboard anterior, imagens de referência) como referência ao provider; com base64 embutido o body total facilmente ultrapassa o teto de cada um e a chamada falha. Decidimos, na garganta de `media_generator` (único ponto de confluência de toda geração), fazer compressão ativa + rebaixamento de pré-check na **cópia de upload de referência**, e manter um fallback passivo de 413; a lógica de compressão fica centralizada em `lib/reference_compression.py` e só trata cópias temporárias apagadas após o envio.
 
-## 决定
+## Decisão
 
-- **只压参考上传副本**：源资产文件与生成产出保持全质量不变（产出无任何保存时压缩）。因此「生成 4K 却拿不到 4K」在此机制下不可能发生——参考图分辨率不决定输出分辨率。
-- **不用每家精确字节上限，用单一保守通用上限**：默认总请求 ≤8MB / 单图 ≤4MB（清除所有内置供应商已知文档上限），存放于 ConfigService、可 per-provider 覆盖；**被动捕获 HTTP 413 → 降一档重试**以应对「未知/可能变动的上限」（如中转站、文档缺失或过期）。
-- **统一 JPEG q92 + 4:4:4**：所有供应商均接受 JPEG，零格式分支；q92/4:4:4 是「视觉无损」档，把「我方压一道 + 供应商内部再压一道」的代际损伤压到最小，并保护带文字 sheet 的边缘。
-- **基线主降分辨率**（长边 ≤2048、有条件透传，超限才处理）；降档阶梯同样分辨率优先、质量下限 q80。研究表明分辨率是第一杠杆且低风险，降质量引入的高频伪影才会损伤条件效果（尤以 i2v 首帧敏感）。
-- **按角色区分**：多图参考数组走完整基线 + 降档阶梯；单张首/尾帧仅超字节时重编码、**永不缩尺寸**，以保护敏感首帧并避免破坏 Sora 的输入图像素精确匹配。
+- **Só comprime a cópia de upload de referência**: arquivos de asset de origem e produtos gerados permanecem em qualidade total (nenhuma compressão na gravação do produto). Logo «gerar 4K e não obter 4K» não pode ocorrer neste mecanismo — a resolução da referência não decide a resolução de saída.
+- **Sem teto de bytes exato por provider; um único teto geral conservador**: default request total ≤8MB / imagem única ≤4MB (abaixo de todos os tetos documentados conhecidos dos providers embutidos), em ConfigService, sobrescrevível per-provider; **captura passiva de HTTP 413 → rebaixa uma faixa e tenta de novo** para lidar com «tetos desconhecidos/possivelmente mutáveis» (relays, docs ausentes ou desatualizados).
+- **JPEG unificado q92 + 4:4:4**: todos os providers aceitam JPEG, zero ramos de formato; q92/4:4:4 é a faixa «visualmente lossless», minimiza dano geracional de «nós comprimimos uma vez + o provider comprime de novo por dentro» e protege bordas de sheets com texto.
+- **Baseline prioritariamente reduz resolução** (lado longo ≤2048, pass-through condicional, só processa se estourar); a escada de rebaixamento também prioriza resolução, com piso de qualidade q80. Pesquisa mostra que resolução é a primeira alavanca e de baixo risco; artefatos de alta frequência da queda de qualidade é que prejudicam o efeito de condicionamento (especialmente frame inicial de i2v, sensível).
+- **Distinção por papel**: array multi-imagem de referência segue baseline completa + escada de rebaixamento; frame inicial/final único só reencoda se estourar bytes e **nunca reduz dimensões**, para proteger o frame inicial sensível e não quebrar o match exato de pixels de entrada do Sora.
 
-## 为何不用每家精确字节限
+## Por que não teto de bytes exato por provider
 
-逐家硬编码请求体上限违反「不猜/不硬编码外部供应商数据」原则（多数供应商总体上限无明文、且经常变动；中转站每家各异、无从查证）。保守通用上限是 ArcReel 侧的安全策略常量（类比 timeout 默认），不声称任何一家的真实数字；被动 413 负责自我纠正。代价：偶发「上限配置偏大」会多一次 413 失败调用——但 413 在 ingress 即被拒绝、不计费，仅增加延迟，且实际服务图像的中转站基本都已调大 body 限制，触发极少。
+Hardcodar teto de body por provider viola o princípio «não adivinhar/não hardcodar dados de provider externo» (a maioria não publica teto total em claro e muda com frequência; cada relay é diferente e não verificável). O teto geral conservador é constante de política de segurança do lado ArcReel (análogo ao default de timeout), sem pretender ser o número real de ninguém; o 413 passivo se autocorrije. Custo: ocasionalmente «teto configurado largo demais» gera uma chamada 413 a mais — mas 413 é rejeitado no ingress, sem cobrança, só atraso, e relays que realmente servem imagem em geral já aumentaram o body limit; o disparo é raro.
 
 ## Consequences
 
-- 各 backend 错误路径需让 413 可被识别：`vidu`/`dashscope` 现把 `httpx.HTTPStatusError` 包成 `RuntimeError`、丢了状态码，需规整为保留状态码。
-- R2V 原有的 per-task 压缩（`_compress_references_to_tempfiles`）与那段从未被 raise、因而是死代码的 `except RequestPayloadTooLargeError` 一并撤除/迁移；压缩统一由咽喉层负责，避免双压。
-- Sora 输入图像素精确匹配是先于本需求存在的独立缺口（首帧未做 pad/resize 到合法档），不在本设计范围；本设计保证不使其恶化。
+- Os caminhos de erro de cada backend precisam deixar 413 reconhecível: `vidu`/`dashscope` hoje embrulham `httpx.HTTPStatusError` em `RuntimeError` e perdem o status code — precisam preservar o status code.
+- A compressão per-task antiga de R2V (`_compress_references_to_tempfiles`) e o `except RequestPayloadTooLargeError` que nunca era raised (código morto) saem/migram juntos; a compressão unifica na garganta, evitando compressão dupla.
+- O match exato de pixels de entrada do Sora é lacuna independente anterior a este requisito (frame inicial sem pad/resize para faixa legal), fora do escopo deste desenho; o desenho garante não piorar.

@@ -1,307 +1,307 @@
 ---
 name: manga-workflow
-description: 将小说转换为短视频的端到端工作流编排器。当用户提到做视频、创建项目、继续项目、查看进度时必须使用此 skill。触发场景包括但不限于："帮我把小说做成视频"、"开个新项目"、"继续"、"下一步"、"看看项目进度"、"从头开始"、"拆集"、"自动跑完流程"等。即使用户只说了简短的"继续"或"下一步"，只要当前上下文涉及视频项目，就应该触发。不要用于单个资产生成（如只重画某张分镜图或只重新生成某个角色设计图——那些有专门的 skill）。
+description: Orquestrador de fluxo ponta a ponta que transforma romance em vídeo curto. Use este skill sempre que o usuário falar em fazer vídeo, criar projeto, continuar o projeto ou ver progresso. Gatilhos incluem, sem se limitar a: "me ajuda a transformar o romance em vídeo", "abrir um projeto novo", "continuar", "próximo passo", "ver o progresso do projeto", "começar do zero", "dividir episódios", "rodar o fluxo inteiro sozinho" etc. Mesmo se o usuário só disser "continuar" ou "próximo passo", se o contexto atual for de projeto de vídeo, dispare. Não use para geração isolada de ativo (ex.: só redesenhar uma storyboard ou só regenerar a arte de um personagem — isso tem skill próprio).
 ---
 <!-- mode: narration -->
 
-# 视频工作流编排
+# Orquestração do fluxo de vídeo
 
-你（主 agent）是编排中枢。你**不直接**处理小说原文或生成剧本，而是：
-1. 检测项目状态 → 2. 决定下一阶段 → 3. dispatch 合适的 subagent → 4. 展示结果 → 5. 获取用户确认 → 6. 循环
+Você (agent principal) é o hub de orquestração. Você **não** processa o original do romance nem gera o script diretamente; em vez disso:
+1. Detecta o estado do projeto → 2. Decide a próxima etapa → 3. Faz dispatch do subagent adequado → 4. Mostra o resultado → 5. Obtém confirmação do usuário → 6. Loop
 
-**核心约束**：
-- 小说原文**永远不加载到主 agent context**，由 subagent 自行读取
-- 每次 dispatch 只传**文件路径和关键参数**，不传大块内容
-- 每个 subagent 完成一个聚焦任务就返回，主 agent 负责阶段间衔接
+**Restrições centrais**:
+- O original do romance **nunca** entra no context do agent principal; o subagent lê sozinho
+- Cada dispatch só passa **caminhos de arquivo e parâmetros-chave**, sem blocos grandes de conteúdo
+- Cada subagent completa uma tarefa focada e retorna; o agent principal cuida da costura entre etapas
 
-> 三种生成模式（图生视频 / 宫格生视频 / 参考生视频）的数据路径与阶段分支详见 `.claude/references/generation-modes.md`。
-
----
-
-## 阶段 0：项目设置
-
-**重要**：项目目录的创建由 Web 端 `POST /api/v1/projects` 触发 `ProjectManager.create_project()` 完成（包括所有子目录与 `project.json`、按 content_mode 物化对应的 agent profile）。**主 agent 不创建目录、不写入 project.json 初始字段**——session 启动时 cwd 已绑定到已存在的项目根。
-
-### 新项目
-
-1. 提示用户在 Web 端先创建项目，**创建时指定 content_mode**（narration / drama）；session 启动后 cwd 已绑定到对应项目根
-2. 使用 Read 工具读取 `project.json`，确认 `title`、`content_mode`、`generation_mode` 字段（本 session 当前 content_mode 为 `narration`，创建后不可变更）
-3. 若 `generation_mode` 未在创建时指定，AskUserQuestion 询问后由用户在 Web 端补齐（或由 mcp__arcreel__ 配置工具写入）
-4. 请用户将小说文本放入 `source/`
-5. **上传后自动生成项目概述**（synopsis、genre、theme、world_setting）
-
-> 标准项目子目录由 `create_project()` 自动建好：`source/`、`scripts/`、`drafts/`、`characters/`、`scenes/`、`props/`、`storyboards/`、`grids/`、`videos/`、`reference_videos/`、`thumbnails/`、`output/`。
-
-### 现有项目
-
-1. session cwd 已经绑定到目标项目根
-2. 通过 Read `project.json` + Glob 文件系统判定状态摘要
-3. 从上次未完成的阶段继续
+> Caminhos de dados e ramificações de etapa dos três modos de geração (imagem→vídeo / grid→vídeo / referência→vídeo) em `.claude/references/generation-modes.md`.
 
 ---
 
-## 状态检测
+## Etapa 0: Configuração do projeto
 
-进入工作流后，使用 Read 读取 `project.json`，使用 Glob 检查文件系统。按顺序检查，遇到第一个缺失项即确定当前阶段：
+**Importante**: a criação do diretório do projeto é feita pelo Web via `POST /api/v1/projects`, que dispara `ProjectManager.create_project()` (inclui todos os subdiretórios e `project.json`, e materializa o agent profile correspondente ao content_mode). **O agent principal não cria diretórios nem grava campos iniciais de project.json** — no start da sessão o cwd já está ligado à raiz do projeto existente.
 
-1. characters / scenes / props 中**任一**为空（定义缺失）？ → **阶段 1**
-2. 目标集在账本（project.json `episodes[]`）中没有条目？ → **阶段 2**。分集接续状态**只读账本**：条目的 `ledger_status` 标记每集状态（planned 已规划 / consumed 已消费 / stale 重排后失效需重做 / unanchored 失锚锁定），顶层 `planning_cursor` 标记下一批规划起点；**不要用 Glob 文件名推断集数**（`source/episode_{N}.txt` 只是账本的派生物）
-3. 目标集 `ledger_status` 为 `stale`（重排后失效——旧 step1/剧本/媒体一律视为失效，即使文件还在也从本阶段起重做，产物沿版本机制替换），或目标集**当前组合对应的** step1 中间文件不存在？ → **阶段 3**。按 `effective_mode(project, episode)` × `content_mode` 三分支检查对应文件（注意 effective_mode 含集级 `episodes[i].generation_mode` 覆盖，不能只看项目顶层字段）：
-   - effective_mode == reference_video（任一 content_mode）: `drafts/episode_{N}/step1_reference_units.md`
-   - effective_mode ∈ {storyboard, grid} 且 content_mode == narration: `drafts/episode_{N}/step1_segments.json`
-   - effective_mode ∈ {storyboard, grid} 且 content_mode == drama: `drafts/episode_{N}/step1_normalized_script.json`（结构化内容）
+### Projeto novo
 
-   本项目 content_mode 固定为 narration（创建后不可变），故只会命中第 1 或第 2 分支，取决于该集的 effective_mode。只认当前组合对应的那一个文件：目录中出现**其他模式的 `step1_*` 文件**属残留，不作为阶段 3 已完成的依据。
-4. scripts/episode_{N}.json 不存在？ → **阶段 4**（另见阶段 4 触发条件：本次会话中阶段 3 中间文件被修改/重拆时，即使 JSON 存在也须重生）
-5. 任一类资产仍有缺 sheet 项（character 缺 character_sheet / scene 缺 scene_sheet / prop 缺 prop_sheet）？ → **阶段 5**（三类并行）
-6. **storyboard / grid 模式**：有场景缺少分镜图？ → **阶段 6**（reference_video 模式跳过）
-7. 有场景/unit 缺少视频？ → **阶段 7**
-8. **storyboard / grid 模式**：有段缺 `narration_audio`？ → **阶段 8（旁白配音）**（reference_video 模式无 segments，跳过）
-9. 全部完成 → 工作流结束，引导用户在 Web 端导出剪映草稿
+1. Oriente o usuário a criar o projeto primeiro no Web, **especificando content_mode na criação** (narration / drama); após o start da sessão o cwd já está na raiz do projeto correspondente
+2. Use Read em `project.json` e confirme os campos `title`, `content_mode`, `generation_mode` (nesta sessão o content_mode atual é `narration`, imutável após a criação)
+3. Se `generation_mode` não foi definido na criação, pergunte com AskUserQuestion e o usuário completa no Web (ou grava via ferramenta de config mcp__arcreel__)
+4. Peça ao usuário colocar o texto do romance em `source/`
+5. **Após o upload, overview do projeto é gerado automaticamente** (synopsis, genre, theme, world_setting)
 
-> 阶段 8 只依赖剧本各段的 `novel_text`，独立于分镜图/视频——阶段 4 剧本生成后即可推进。
-> 用户提前要求配音时直接进入阶段 8，不必等分镜/视频完成。
+> Subdiretórios padrão do projeto são criados automaticamente por `create_project()`: `source/`, `scripts/`, `drafts/`, `characters/`, `scenes/`, `props/`, `storyboards/`, `grids/`, `videos/`, `reference_videos/`, `thumbnails/`, `output/`.
 
-**确定目标集数**：如果用户未指定，读账本确定——`ledger_status` 为 `planned`（或 `stale`）的最小集号即下一个待制作集；账本中所有集均已消费且源文尚未规划完时，进入阶段 2 规划下一批。
+### Projeto existente
+
+1. O cwd da sessão já está ligado à raiz do projeto-alvo
+2. Com Read em `project.json` + Glob no sistema de arquivos, determine o resumo de estado
+3. Continue a partir da última etapa incompleta
 
 ---
 
-## 阶段间确认协议
+## Detecção de estado
 
-**每个 subagent 返回后**，主 agent 执行：
+Ao entrar no fluxo, use Read em `project.json` e Glob no sistema de arquivos. Verifique em ordem; o primeiro item faltante define a etapa atual:
 
-1. **展示摘要**：将 subagent 返回的摘要展示给用户
-2. **获取确认**：使用 AskUserQuestion 提供选项：
-   - **继续下一阶段**（推荐）
-   - **重做此阶段**（附加修改要求后重新 dispatch）
-   - **跳过此阶段**
-3. **根据用户选择行动**
+1. characters / scenes / props **qualquer um** vazio (definição faltando)? → **Etapa 1**
+2. O episódio-alvo não tem entrada no ledger (`episodes[]` de project.json)? → **Etapa 2**. O estado de continuidade de episódios **só lê o ledger**: `ledger_status` de cada entrada marca o estado do episódio (planned já planejado / consumed já consumido / stale invalidado após reordenação e precisa refazer / unanchored âncora perdida e travado); o topo `planning_cursor` marca o início do próximo lote de planejamento; **não use Glob de nomes de arquivo para inferir o número do episódio** (`source/episode_{N}.txt` é só derivado do ledger)
+3. O episódio-alvo tem `ledger_status` `stale` (invalidado após reordenação — step1/script/mídia antigos contam como inválidos; mesmo com arquivos ainda presentes, refaça a partir desta etapa; produtos são substituídos pelo mecanismo de versão), ou o arquivo intermediário step1 da **combinação atual** do episódio-alvo não existe? → **Etapa 3**. Verifique o arquivo correspondente nos três ramos `effective_mode(project, episode)` × `content_mode` (note que effective_mode inclui o override `episodes[i].generation_mode` do episódio; não olhe só o campo de topo do projeto):
+   - effective_mode == reference_video (qualquer content_mode): `drafts/episode_{N}/step1_reference_units.md`
+   - effective_mode ∈ {storyboard, grid} e content_mode == narration: `drafts/episode_{N}/step1_segments.json`
+   - effective_mode ∈ {storyboard, grid} e content_mode == drama: `drafts/episode_{N}/step1_normalized_script.json` (conteúdo estruturado)
+
+   Neste projeto content_mode é fixo em narration (imutável após a criação), então só acerta o 1º ou o 2º ramo, conforme o effective_mode do episódio. Só reconheça o arquivo da combinação atual: **outros `step1_*` de outros modos** no diretório são resíduo e não contam como etapa 3 concluída.
+4. scripts/episode_{N}.json não existe? → **Etapa 4** (ver também gatilhos da etapa 4: se o intermediário da etapa 3 for modificado/redividido nesta sessão, mesmo com JSON existente é preciso regenerar)
+5. Qualquer classe de ativo ainda tem item sem sheet (character sem character_sheet / scene sem scene_sheet / prop sem prop_sheet)? → **Etapa 5** (três classes em paralelo)
+6. **modos storyboard / grid**: há cena sem storyboard? → **Etapa 6** (modo reference_video pula)
+7. Há cena/unit sem vídeo? → **Etapa 7**
+8. **modos storyboard / grid**: há segmento sem `narration_audio`? → **Etapa 8 (narração TTS)** (modo reference_video sem segments, pula)
+9. Tudo concluído → fim do fluxo; oriente o usuário a exportar o rascunho CapCut/Jianying no Web
+
+> A etapa 8 só depende do `novel_text` de cada segmento do script, independente de storyboard/vídeo — pode avançar assim que o script da etapa 4 existir.
+> Se o usuário pedir dublagem cedo, entre direto na etapa 8; não precisa esperar storyboard/vídeo.
+
+**Determinar o número do episódio-alvo**: se o usuário não especificou, leia o ledger — o menor número de episódio com `ledger_status` `planned` (ou `stale`) é o próximo a produzir; se todos os episódios do ledger já foram consumidos e o original ainda não foi planejado por completo, entre na etapa 2 para planejar o próximo lote.
 
 ---
 
-## 阶段 1：全局角色/场景/道具提取
+## Protocolo de confirmação entre etapas
 
-**触发**：project.json 中 characters / scenes / props 中**任一**为空（定义缺失）
+**Após cada retorno de subagent**, o agent principal:
 
-**dispatch `analyze-assets` subagent**：
+1. **Mostra o resumo**: apresenta ao usuário o resumo devolvido pelo subagent
+2. **Obtém confirmação**: com AskUserQuestion oferece opções:
+   - **Continuar para a próxima etapa** (recomendado)
+   - **Refazer esta etapa** (redispatch com requisitos de edição anexados)
+   - **Pular esta etapa**
+3. **Age conforme a escolha do usuário**
+
+---
+
+## Etapa 1: Extração global de personagem/cena/prop
+
+**Gatilho**: em project.json, characters / scenes / props **qualquer um** vazio (definição faltando)
+
+**dispatch do subagent `analyze-assets`**:
 
 ```text
-项目名称：{project_name}
-分析范围：{整部小说 / 用户指定的范围}
-已有角色：{已有角色名列表，或"无"}
-已有场景：{已有场景名列表，或"无"}
-已有道具：{已有道具名列表，或"无"}
+Nome do projeto: {project_name}
+Escopo da análise: {romance inteiro / escopo indicado pelo usuário}
+Personagens já existentes: {lista de nomes, ou "nenhum"}
+Cenas já existentes: {lista de nomes, ou "nenhuma"}
+Props já existentes: {lista de nomes, ou "nenhum"}
 
-请分析小说原文，提取角色 / 场景 / 道具信息，写入 project.json，返回摘要。
+Analise o original do romance, extraia informações de personagem / cena / prop, grave em project.json e retorne o resumo.
 ```
 
 ---
 
-## 阶段 2：分集规划
+## Etapa 2: Planejamento de episódios
 
-**触发**：目标集在账本（project.json `episodes[]`）中没有条目
+**Gatilho**: o episódio-alvo não tem entrada no ledger (`episodes[]` de project.json)
 
-分集规划由服务端工具完成：工具内部从 `planning_cursor` 起读一个源文窗口，调用项目配置的文本模型一次规划出窗口内所有剧情弧完整的集（标题/钩子/原文范围），在同一把项目锁内写账本、派生 `source/episode_{N}.txt` 并清理残留派生文件。**主 agent 只调一次工具、只收摘要**——不读小说原文、不自行选切分点：
+O planejamento de episódios é feito pela ferramenta de servidor: internamente, a partir de `planning_cursor`, lê uma janela do original, chama o modelo de texto do projeto uma vez e planeja todos os episódios com arco narrativo completo dentro da janela (título/gancho/faixa do original), e na mesma trava do projeto grava o ledger, deriva `source/episode_{N}.txt` e limpa arquivos derivados residuais. **O agent principal só chama a ferramenta uma vez e só recebe o resumo** — não lê o original do romance e não escolhe pontos de corte sozinho:
 
-1. 规划前快速核对 `project.json`：
-   - `source_language` 是否与源文实际语言一致。优先级：**用户显式配置 > 自动推断**（正常路径由 overview 生成自动落盘）；发现不一致时**提醒用户（WARN）、说明后果并建议修正**（错误配置会使规划的体量度量与语言前提失真），用户未修正时按显式配置继续，不阻塞流程。字段缺失或经用户确认有误时，走 `mcp__arcreel__patch_project({"settings": {"source_language": "en"|"vi"|"zh"}})` 写入
-   - `episode_target_units`（每集目标体量，按 `source_language` 解读为阅读单位）：已设置则直接沿用；缺失且用户在对话中明确给过字数 → 经 `mcp__arcreel__patch_project({"settings": {"episode_target_units": N}})` 写入；都没有也可直接规划（工具会按短视频节奏自行把握体量），无需强制询问
-2. 调用 `mcp__arcreel__plan_episodes({})`。窗口字数与每批集数上限为工具内部默认，项目设置 `planning_window_chars` / `planning_max_episodes` 可覆盖（经 patch_project settings 写入）。**用户在规划前给出常驻分集偏好时**（如"严格按章节切分，一章一集""每集在某处收尾"），把偏好原文经 `instructions` 传入：`mcp__arcreel__plan_episodes({"instructions": "用户偏好原文"})`；规划器会以「必须全部落实」的强度对齐该偏好、优先于默认剧情弧完整性。长篇会分多批规划（每批一次工具调用），该偏好**不持久化**，须在规划完成前**每一批调用都重复带上同一 `instructions`**
-3. **批级审阅**：把工具返回的账本摘要（每集标题+钩子+体量）展示给用户，征求意见
-4. 用户提出意见（一句话可同时包含任意多处意见，含全局偏好）→ 调用 `mcp__arcreel__replan_episodes({"from_episode": N, "instructions": "用户意见原文"})`，`from_episode` 取意见中最早受影响的集；重排结果再次展示审阅。全局性意见（如每集体量）由工具自动回写项目设置，后续批次自动继承
-5. **已消费集警告确认**：重排会波及已消费集（已有 step1/剧本/媒体产物）时，工具会返回受影响集清单而不执行——把影响范围告知用户、获得明确确认后，追加 `"confirm_consumed": true` 重新调用；这些集会标 stale（产物不删除，重做沿现有覆盖/版本机制替换）
-6. 用户对本批规划满意后进入阶段 3。**用户显式授权全自主时**（如"直接跑完整个流程不用逐步确认"），可跳过批级审阅直接继续
+1. Antes de planejar, confira rapidamente `project.json`:
+   - `source_language` está alinhado à língua real do original? Prioridade: **config explícita do usuário > inferência automática** (caminho normal: overview grava automaticamente); se divergir, **avise o usuário (WARN), explique a consequência e sugira correção** (config errada distorce a métrica de volume e a premissa linguística do planejamento); se o usuário não corrigir, continue com a config explícita, sem bloquear. Se o campo faltar ou o usuário confirmar que está errado, grave via `mcp__arcreel__patch_project({"settings": {"source_language": "en"|"vi"|"zh"}})`
+   - `episode_target_units` (volume-alvo por episódio, interpretado como unidade de leitura conforme `source_language`): se já definido, use; se faltar e o usuário deu contagem de caracteres/palavras na conversa → grave via `mcp__arcreel__patch_project({"settings": {"episode_target_units": N}})` ; se nenhum dos dois, pode planejar direto (a ferramenta calibra o volume pelo ritmo de vídeo curto), sem forçar pergunta
+2. Chame `mcp__arcreel__plan_episodes({})`. Janela de caracteres e teto de episódios por lote são defaults internos da ferramenta; as settings do projeto `planning_window_chars` / `planning_max_episodes` podem sobrescrever (via patch_project settings). **Se o usuário der preferência permanente de divisão antes de planejar** (ex.: "dividir estritamente por capítulo, um capítulo por episódio" "cada episódio fecha em tal lugar"), passe o texto da preferência em `instructions`: `mcp__arcreel__plan_episodes({"instructions": "texto da preferência do usuário"})`; o planejador alinha essa preferência com força «deve cumprir tudo», prioridade sobre a integridade padrão do arco narrativo. Obras longas planejam em vários lotes (uma chamada de ferramenta por lote); essa preferência **não é persistida** — deve ser **repetida com o mesmo `instructions` em cada chamada de lote** até o fim do planejamento
+3. **Revisão por lote**: mostre ao usuário o resumo do ledger devolvido pela ferramenta (título+gancho+volume de cada episódio) e peça opinião
+4. Se o usuário der feedback (uma frase pode conter várias opiniões, inclusive preferência global) → chame `mcp__arcreel__replan_episodes({"from_episode": N, "instructions": "texto da opinião do usuário"})`, com `from_episode` = o episódio mais cedo afetado pela opinião; mostre de novo o resultado da reordenação. Opiniões globais (ex.: volume por episódio) a ferramenta regrava automaticamente nas settings do projeto e os lotes seguintes herdam
+5. **Confirmação de aviso de episódios já consumidos**: se a reordenação atingir episódios já consumidos (já com produtos step1/script/mídia), a ferramenta devolve a lista afetada e **não** executa — informe o escopo do impacto, obtenha confirmação explícita e chame de novo com `"confirm_consumed": true`; esses episódios ficam stale (produtos não são apagados; o refazer substitui pelo mecanismo de cobertura/versão existente)
+6. Quando o usuário estiver satisfeito com o lote, entre na etapa 3. **Com autorização total de autonomia do usuário** (ex.: "roda o fluxo inteiro sem confirmar etapa a etapa"), pode pular a revisão por lote e seguir direto
 
 ---
 
-## 阶段 3：单集预处理
+## Etapa 3: Pré-processamento do episódio
 
-**触发**：目标集的 drafts/ 中间文件不存在
+**Gatilho**: o arquivo intermediário em drafts/ do episódio-alvo não existe
 
-根据 `effective_mode(project, episode)` 选择 subagent：
+Escolha o subagent conforme `effective_mode(project, episode)`:
 
-- `effective_mode == reference_video` → dispatch `split-reference-video-units`（产出 `drafts/episode_{N}/step1_reference_units.md`）
-- 否则（本项目 content_mode == narration）→ dispatch `split-narration-segments`（产出 `drafts/episode_{N}/step1_segments.json`）
+- `effective_mode == reference_video` → dispatch `split-reference-video-units` (produz `drafts/episode_{N}/step1_reference_units.md`)
+- caso contrário (neste projeto content_mode == narration) → dispatch `split-narration-segments` (produz `drafts/episode_{N}/step1_segments.json`)
 
-dispatch prompt 通用参数：项目名称、项目路径、集数、本集小说文件路径。
+Parâmetros comuns do prompt de dispatch: nome do projeto, caminho do projeto, número do episódio, caminho do arquivo do romance deste episódio.
 
-（两个预处理 subagent 会自行读 project.json + 调用
+(Os dois subagents de pré-processamento leem project.json sozinhos + chamam
 `mcp__arcreel__get_video_capabilities({})`
-拿到模型能力与用户偏好；主 agent 不需要预先注入角色/场景/道具列表或
-`supported_durations` / `max_duration` / `max_reference_images` / `default_duration` 等数据。）
+para obter capacidades do modelo e preferências do usuário; o agent principal não precisa injetar de antemão a lista de personagem/cena/prop nem
+dados como `supported_durations` / `max_duration` / `max_reference_images` / `default_duration`.)
 
-**中间文件变更必重生剧本 JSON**：阶段 3 的中间文件被修改或重拆后（无论哪种生成模式、无论首次还是重做），即使 `scripts/episode_{N}.json` 已存在，也必须重新执行阶段 4——剧本 JSON 不会自动跟随中间文件更新，跳过会留下「新中间文件 + 旧 JSON」的陈旧组合。
-
----
-
-## 阶段 4：JSON 剧本生成
-
-**触发**（满足其一）：
-- `scripts/episode_{N}.json` 不存在
-- 阶段 3 的中间文件在本次会话中被修改或重拆（此时即使 JSON 已存在也必须重生）
-
-**step1→step2 审核 gate（阻塞）**：阶段 3 的结构化 step1 中间态须经**显式确认**才放行本阶段（仅结构化 step1 适用；`reference_video` 路径的 step1 是自由文本 md、不走本 gate，无需确认、也不要对其调用 `confirm_script_review`）。两条等价确认路径——用户在 Web 端审阅 / 编辑后确认，或在对话中明确同意进入视觉生成后由你调用 `mcp__arcreel__confirm_script_review({"episode": N})`（全自主模式下按用户总体授权确认）。未确认（或确认后 step1 又被改）时 `generate_episode_script` 会被 gate 拒绝；**存量项目**（升级前已生成过本集剧本）已 grandfather 放行、无需再确认。
-
-**dispatch `create-episode-script` subagent**：传入项目名称、项目路径、集数。
+**Mudança no intermediário exige regenerar o script JSON**: se o intermediário da etapa 3 for modificado ou redividido (qualquer modo de geração, primeira vez ou refazer), mesmo com `scripts/episode_{N}.json` já existente, **reexecute a etapa 4** — o JSON do script não acompanha o intermediário automaticamente; pular deixa «intermediário novo + JSON antigo».
 
 ---
 
-## 阶段 5：资产设计（character / scene / prop 三类并行）
+## Etapa 4: Geração de script JSON
 
-**前置条件**：三类资产的定义（characters / scenes / props）均已通过阶段 1 写入 project.json。若任一类定义为空（数组缺失），应回到阶段 1 补提取，而非停留在阶段 5。
+**Gatilho** (qualquer um):
+- `scripts/episode_{N}.json` não existe
+- o intermediário da etapa 3 foi modificado ou redividido nesta sessão (mesmo com JSON já existente, é preciso regenerar)
 
-**触发**：三类资产中任一类存在缺 sheet 项：
-- character 缺 character_sheet
-- scene 缺 scene_sheet
-- prop 缺 prop_sheet
+**Gate de revisão step1→step2 (bloqueante)**: o estado intermediário estruturado step1 da etapa 3 precisa de **confirmação explícita** para liberar esta etapa (só se aplica a step1 estruturado; o step1 do caminho `reference_video` é md de texto livre e **não** passa por este gate — não confirme e não chame `confirm_script_review` nele). Duas vias equivalentes de confirmação — o usuário revisa / edita e confirma no Web, ou você chama `mcp__arcreel__confirm_script_review({"episode": N})` após o usuário concordar na conversa em seguir para a geração visual (no modo de autonomia total, confirme com a autorização geral do usuário). Sem confirmação (ou com step1 alterado após confirmação) `generate_episode_script` é rejeitado pelo gate; **projetos legados** (que já geraram o script deste episódio antes do upgrade) estão grandfathered e não precisam confirmar de novo.
 
-**调度规则（显式条件判断，按类型独立决定）**：
+**dispatch do subagent `create-episode-script`**: passe nome do projeto, caminho do projeto, número do episódio.
+
+---
+
+## Etapa 5: Design de ativos (character / scene / prop em paralelo)
+
+**Pré-condição**: as definições das três classes de ativos (characters / scenes / props) já foram gravadas em project.json pela etapa 1. Se qualquer definição estiver vazia (array ausente), volte à etapa 1 para completar a extração; não fique parado na etapa 5.
+
+**Gatilho**: em qualquer das três classes há item sem sheet:
+- character sem character_sheet
+- scene sem scene_sheet
+- prop sem prop_sheet
+
+**Regra de despacho (julgamento de condição explícito, decisão independente por tipo)**:
 
 ```text
-对于 type ∈ {character, scene, prop}:
-  若该类存在缺 *_sheet 项 → dispatch 对应的 `generate-assets` subagent
-  若该类均已齐全         → 跳过，不 dispatch
+Para type ∈ {character, scene, prop}:
+  se a classe tem item sem *_sheet → dispatch do subagent `generate-assets` correspondente
+  se a classe já está completa      → pular, sem dispatch
 
-三类判断彼此独立，结果可能 dispatch 0~3 个 subagent。
-所有 dispatch 的 subagent 返回后，合并摘要展示给用户，进入阶段间确认。
+Os três julgamentos são independentes; o resultado pode ser dispatch de 0~3 subagents.
+Após o retorno de todos os subagents despachados, una os resumos, mostre ao usuário e entre na confirmação entre etapas.
 ```
 
-下面三个 dispatch 块是模板，只实例化满足上述条件的那几个：
+Os três blocos de dispatch abaixo são templates; instancie só os que satisfazem a condição:
 
-### subagent — 角色设计
+### subagent — design de personagem
 
-**触发**：有角色缺少 character_sheet
+**Gatilho**: há personagem sem character_sheet
 
 ```text
-dispatch `generate-assets` subagent：
-  任务类型：character
-  项目名称：{project_name}
-  待生成项：{缺失角色名列表}
-  工具调用：
+dispatch do subagent `generate-assets`:
+  tipo de tarefa: character
+  nome do projeto: {project_name}
+  itens a gerar: {lista de nomes de personagens faltantes}
+  chamada de ferramenta:
     mcp__arcreel__generate_assets({"type": "character"})
-  验证方式：重新读取 project.json，检查对应角色的 character_sheet 字段
+  forma de validação: reler project.json e checar o campo character_sheet dos personagens correspondentes
 ```
 
-### subagent — 场景设计
+### subagent — design de cena
 
-**触发**：有场景缺少 scene_sheet
+**Gatilho**: há cena sem scene_sheet
 
 ```text
-dispatch `generate-assets` subagent：
-  任务类型：scene
-  项目名称：{project_name}
-  待生成项：{缺失场景名列表}
-  工具调用：
+dispatch do subagent `generate-assets`:
+  tipo de tarefa: scene
+  nome do projeto: {project_name}
+  itens a gerar: {lista de nomes de cenas faltantes}
+  chamada de ferramenta:
     mcp__arcreel__generate_assets({"type": "scene"})
-  验证方式：重新读取 project.json，检查对应场景的 scene_sheet 字段
+  forma de validação: reler project.json e checar o campo scene_sheet das cenas correspondentes
 ```
 
-### subagent — 道具设计
+### subagent — design de prop
 
-**触发**：有道具缺少 prop_sheet
+**Gatilho**: há prop sem prop_sheet
 
 ```text
-dispatch `generate-assets` subagent：
-  任务类型：prop
-  项目名称：{project_name}
-  待生成项：{缺失道具名列表}
-  工具调用：
+dispatch do subagent `generate-assets`:
+  tipo de tarefa: prop
+  nome do projeto: {project_name}
+  itens a gerar: {lista de nomes de props faltantes}
+  chamada de ferramenta:
     mcp__arcreel__generate_assets({"type": "prop"})
-  验证方式：重新读取 project.json，检查对应道具的 prop_sheet 字段
+  forma de validação: reler project.json e checar o campo prop_sheet dos props correspondentes
 ```
 
 ---
 
-## 阶段 6：分镜图生成（仅 storyboard / grid 模式）
+## Etapa 6: Geração de storyboard (somente modos storyboard / grid)
 
-**触发**：有场景缺少分镜图；**参考生视频模式跳过此阶段**
+**Gatilho**: há cena sem storyboard; **modo referência→vídeo pula esta etapa**
 
-检查 `effective_mode(project, episode)`：
+Verifique `effective_mode(project, episode)`:
 
-- `"storyboard"` → dispatch `generate-assets`，调 `mcp__arcreel__generate_storyboards`
-- `"grid"` → dispatch `generate-assets`，调 `mcp__arcreel__generate_grid`
-- `"reference_video"` → 不触发，直接跳到阶段 7
+- `"storyboard"` → dispatch `generate-assets`, chame `mcp__arcreel__generate_storyboards`
+- `"grid"` → dispatch `generate-assets`, chame `mcp__arcreel__generate_grid`
+- `"reference_video"` → não dispara; pule direto para a etapa 7
 
-### storyboard 模式（默认）
+### modo storyboard (padrão)
 
-**dispatch `generate-assets` subagent**：
+**dispatch do subagent `generate-assets`**:
 
 ```text
-dispatch `generate-assets` subagent：
-  任务类型：storyboard
-  项目名称：{project_name}
-  工具调用：
+dispatch do subagent `generate-assets`:
+  tipo de tarefa: storyboard
+  nome do projeto: {project_name}
+  chamada de ferramenta:
     mcp__arcreel__generate_storyboards({"script": "episode_{N}.json"})
-  验证方式：重新读取 scripts/episode_{N}.json，检查各场景的 storyboard_image 字段
+  forma de validação: reler scripts/episode_{N}.json e checar o campo storyboard_image de cada cena
 ```
 
-### grid 模式
+### modo grid
 
-**dispatch `generate-assets` subagent**：
+**dispatch do subagent `generate-assets`**:
 
 ```text
-dispatch `generate-assets` subagent：
-  任务类型：storyboard
-  项目名称：{project_name}
-  工具调用：
+dispatch do subagent `generate-assets`:
+  tipo de tarefa: storyboard
+  nome do projeto: {project_name}
+  chamada de ferramenta:
     mcp__arcreel__generate_grid({"script": "episode_{N}.json"})
-  验证方式：重新读取 scripts/episode_{N}.json，检查各场景的 storyboard_image 字段
+  forma de validação: reler scripts/episode_{N}.json e checar o campo storyboard_image de cada cena
 ```
 
 ---
 
-## 阶段 7：视频生成
+## Etapa 7: Geração de vídeo
 
-**触发**：有场景缺少视频
+**Gatilho**: há cena sem vídeo
 
-**dispatch `generate-assets` subagent**：
+**dispatch do subagent `generate-assets`**:
 
 ```text
-dispatch `generate-assets` subagent：
-  任务类型：video
-  项目名称：{project_name}
-  工具调用：
+dispatch do subagent `generate-assets`:
+  tipo de tarefa: video
+  nome do projeto: {project_name}
+  chamada de ferramenta:
     mcp__arcreel__generate_video_episode({"script": "episode_{N}.json"})
-  验证方式：重新读取 scripts/episode_{N}.json，检查各场景的 video_clip 字段
+  forma de validação: reler scripts/episode_{N}.json e checar o campo video_clip de cada cena
 ```
 
 ---
 
-## 阶段 8：旁白配音（仅 storyboard / grid 模式）
+## Etapa 8: Narração TTS (somente modos storyboard / grid)
 
-**触发**：有段缺 `narration_audio`；**参考生视频模式跳过此阶段**（无 segments）
+**Gatilho**: há segmento sem `narration_audio`; **modo referência→vídeo pula esta etapa** (sem segments)
 
-旁白配音以各段 `novel_text` 原文逐段合成语音，只依赖剧本、独立于分镜图/视频：
-按序推进时排在视频之后，但用户要求时可在阶段 4 剧本生成后随时执行。
+A narração TTS sintetiza voz segmento a segmento a partir do `novel_text` original de cada segmento; depende só do script, independente de storyboard/vídeo:
+na ordem do fluxo fica depois do vídeo, mas se o usuário pedir pode rodar a qualquer momento após o script da etapa 4.
 
-**dispatch `generate-assets` subagent**：
+**dispatch do subagent `generate-assets`**:
 
 ```text
-dispatch `generate-assets` subagent：
-  任务类型：narration_audio
-  项目名称：{project_name}
-  工具调用：
+dispatch do subagent `generate-assets`:
+  tipo de tarefa: narration_audio
+  nome do projeto: {project_name}
+  chamada de ferramenta:
     mcp__arcreel__generate_narration_audio({"script": "episode_{N}.json"})
-  验证方式：重新读取 scripts/episode_{N}.json，检查各段 generated_assets.narration_audio 字段
+  forma de validação: reler scripts/episode_{N}.json e checar o campo generated_assets.narration_audio de cada segmento
 ```
 
-中断后重新 dispatch 同一工具调用即可断点续传——已有音频的段自动跳过，只补缺失段。
+Após interrupção, redispatch a mesma chamada de ferramenta para retomar por checkpoint — segmentos com áudio são pulados automaticamente; só completa os faltantes.
 
 ---
 
-## 灵活入口
+## Entrada flexível
 
-工作流**不强制从头开始**。根据状态检测结果，自动从正确的阶段开始：
+O fluxo **não força começar do zero**. Conforme o resultado da detecção de estado, começa automaticamente na etapa correta:
 
-- "分析小说角色" → 只执行阶段 1
-- "创建第2集剧本" → 从阶段 2 开始（如果角色已有）
-- "继续" → 状态检测找到第一个缺失项
-- 指定具体阶段（如"生成分镜图"）→ 直接跳到该阶段
+- "analisar personagens do romance" → só executa a etapa 1
+- "criar o script do episódio 2" → começa na etapa 2 (se os personagens já existirem)
+- "continuar" → a detecção de estado acha o primeiro item faltante
+- etapa específica (ex.: "gerar storyboard") → pula direto para essa etapa
 
 ---
 
-## 数据分层
+## Camadas de dados
 
-- 角色 / 场景 / 道具完整定义**只存 project.json**，剧本中仅引用名称
-- 统计字段（scenes_count、status、progress）**读时计算**，不存储
-- 剧集元数据在剧本保存时**写时同步**
+- Definições completas de personagem / cena / prop **só em project.json**; o script só referencia nomes
+- Campos estatísticos (scenes_count, status, progress) são **calculados na leitura**, não armazenados
+- Metadados de episódio são **sincronizados na escrita** ao salvar o script

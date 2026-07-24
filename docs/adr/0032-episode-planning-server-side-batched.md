@@ -2,21 +2,21 @@
 status: accepted
 ---
 
-# 分集规划由服务端工具内文本模型分批滚动执行，drama 账本即分集大纲
+# Planejamento de episódios: modelo de texto no servidor, em lotes rolantes dentro da ferramenta; o ledger drama é o outline de episódios
 
-旧流程由主 agent 多步执行机械脚本（peek 阅读单位口径 → 换算字符口径 → 选锚点 → dry-run → split）：切分点零剧情语义留不住钩子，多步约定押在 agent 的流程遵循上，且逐集滚动使规划时看不到下一集内容。决定把拆分点判断交给 LLM、流程交给确定性工具：新增 plan/replan 服务端 MCP 工具，内部读源文窗口（数万字级）调项目配置的文本模型，一次规划出窗口内所有剧情弧完整的集（标题/钩子/范围），cursor 只推进到最后一个高置信切分点、尾巴留给下一批；Pydantic schema 强约束，锚点存在性与范围连续性做机械校验、失败在工具层自动重试，重试附带上一轮校验失败原因（schema 错误/锚点不存在/范围不连续）引导针对性修正而非原样重发。主 agent 只调一次工具收摘要，不再承载切分过程。drama 模式账本条目加厚为分集大纲（故事节点、钩子、下集预告语 + 软素材范围），剧本生成的输入包含本集大纲与下集大纲；narration 账本保持薄（精确切分点 + 钩子）。审阅为批级：规划完成后展示账本摘要供用户确认，用户的任意多处意见经 `replan(from_episode, instructions)` 一次性局部重排，from_episode 取意见中最早受影响的集；重排范围（from_episode 至已规划末尾）跨多个源文件时按文件拆为多段独立重切——单集不跨文件、文件边界即集边界，集号跨段连续编号，整体范围闭合、cursor 不动。
+O fluxo antigo tinha o agent principal executando em vários passos scripts mecânicos (peek na unidade de leitura → converter para unidade de caracteres → escolher âncora → dry-run → split): o ponto de corte sem semântica de enredo não retinha hooks; o contrato multi-passo dependia do agent seguir o fluxo; e o rolamento episódio a episódio fazia o plano não ver o conteúdo do próximo. Decidimos entregar o julgamento do ponto de split ao LLM e o fluxo à ferramenta determinística: novas ferramentas MCP server-side plan/replan, por dentro leem janela do original (dezenas de milhares de caracteres), chamam o modelo de texto configurado no projeto e planejam de uma vez todos os episódios com arco de enredo completo na janela (título/hook/range); o cursor só avança até o último ponto de corte de alta confiança, a cauda fica para o próximo lote; schema Pydantic força a forma; existência da âncora e continuidade do range são validadas mecanicamente; falha re-tenta automaticamente na camada da ferramenta, e o retry carrega o motivo da falha de validação da rodada anterior (erro de schema / âncora inexistente / range descontínuo) para correção dirigida, não reenvio idêntico. O agent principal só chama a ferramenta uma vez e recebe o resumo — não carrega o processo de split. Em modo drama a entrada do ledger engrossa em outline de episódio (nós de história, hooks, teaser do próximo + range soft de material); a entrada da geração de roteiro inclui o outline deste e do próximo episódio; o ledger narration permanece fino (ponto de corte exato + hook). Revisão é no nível do lote: após o plano, o resumo do ledger é exibido para o usuário confirmar; qualquer conjunto de opiniões do usuário passa por `replan(from_episode, instructions)` e replan local de uma vez; from_episode é o episódio mais cedo afetado nas opiniões; o alcance do replan (from_episode até o fim já planejado), quando cruza vários arquivos-fonte, se parte em trechos independentes por arquivo — um episódio não cruza arquivo; a fronteira de arquivo é a fronteira de episódio; a numeração de episódios é contínua entre trechos; o alcance como um todo fecha e o cursor não se move.
 
 ## Considered Options
 
-- 规划 SubAgent（Claude 读窗口产账本）：多轮迭代能力在此用不上（钩子质量取决于 prompt 与全局视野），流程遵循靠 prompt、难单测，token 走 agent 凭证。
-- 全本一次性规划：百万字级成本前置；用户常只做前几集试水，中途改风格后账本大面积作废。
-- 逐集拆分（现状改良）：跨集节奏视野缺失，钩子质量天花板低，接续仍依赖滚动状态。
-- drama 一步直出剧本：与分批规划冲突（一批几十集无法一次写完），调任何切分点都要重写整集剧本。
+- SubAgent de planejamento (Claude lê a janela e produz o ledger): capacidade multi-rodada de iteração não se usa aqui (qualidade do hook depende do prompt e da visão global); seguir o fluxo depende do prompt, difícil de unit-testar; tokens vão na credencial do agent.
+- Planejar o livro inteiro de uma vez: custo de milhões de caracteres adiantado; o usuário muitas vezes só faz os primeiros episódios de teste e, se muda o estilo no meio, o ledger se invalida em massa.
+- Split episódio a episódio (status quo melhorado): falta visão de ritmo cross-episódio; o teto de qualidade do hook é baixo; a continuação ainda depende de estado rolante.
+- Drama: um passo direto para o roteiro: conflita com planejamento em lote (dezenas de episódios em um lote não se escrevem de uma vez); qualquer ajuste de ponto de corte reescreve o roteiro inteiro do episódio.
 
 ## Consequences
 
-- `peek_split_point.py` / `split_episode.py` / `_text_utils.py` 删除，manage-project SKILL.md 切分章节与 CLAUDE.*.md 阶段 2 指令改写为单工具调用。
-- v1 质量保障 = 全局窗口视野 + hook 字段显式化 + 批级审阅，不加 LLM judge 验证环。
-- 规划质量依赖项目配置的文本模型能力，schema 与机械校验只兜形式正确性。
-- 窗口字数、每批集数上限为工具内部默认，project settings 可覆盖。
-- 账本的 hook 与下集预告进入剧本生成输入，并以集级元数据字段落入剧本 JSON（钩子设计落地到成片末场）；场次/景别/画外音等更重的剧本结构升级是独立项，不在本决策内。
+- `peek_split_point.py` / `split_episode.py` / `_text_utils.py` removidos; o capítulo de split de manage-project SKILL.md e as instruções de fase 2 de CLAUDE.*.md reescritos como uma única chamada de ferramenta.
+- Garantia de qualidade v1 = visão de janela global + campo hook explícito + revisão no nível do lote; sem anel de verificação LLM judge.
+- A qualidade do plano depende da capacidade do modelo de texto configurado no projeto; schema e validação mecânica só cobrem correção de forma.
+- Contagem de caracteres da janela e teto de episódios por lote são defaults internos da ferramenta, sobrescrevíveis em project settings.
+- Hook e teaser do próximo episódio do ledger entram na entrada da geração de roteiro e caem no JSON do roteiro como campos de metadados no nível do episódio (o desenho do hook aterrissa na última cena do produto); upgrades mais pesados de estrutura de roteiro (cenas/enquadramentos/voz off etc.) são item independente, fora desta decisão.

@@ -1,27 +1,27 @@
 ## ADDED Requirements
 
-### Requirement: 同步 Agent 对话端点
-系统 SHALL 提供 `POST /api/v1/agent/chat` 同步端点，接收用户消息并返回完整的 Agent 回复。
+### Requirement: Endpoint síncrono de conversa com o Agent
+O sistema SHALL fornecer o endpoint síncrono `POST /api/v1/agent/chat`, recebendo a mensagem do usuário e retornando a resposta completa do Agent.
 
-#### Scenario: 新会话对话
-- **WHEN** 已认证用户调用 `POST /api/v1/agent/chat`，提供 `project_name` 和 `message`，不传 `session_id`
-- **THEN** 系统创建新会话，执行 Agent 对话，返回 `session_id`、`reply`（完整文本）和 `status: "completed"`
+#### Scenario: Conversa em nova sessão
+- **WHEN** um usuário autenticado chama `POST /api/v1/agent/chat` com `project_name` e `message`, sem `session_id`
+- **THEN** o sistema cria uma nova sessão, executa a conversa com o Agent e retorna `session_id`, `reply` (texto completo) e `status: "completed"`
 
-#### Scenario: 复用现有会话
-- **WHEN** 已认证用户调用该端点并提供有效的 `session_id`
-- **THEN** 系统在该会话上下文中继续对话，返回回复
+#### Scenario: Reutilizar sessão existente
+- **WHEN** um usuário autenticado chama o endpoint com um `session_id` válido
+- **THEN** o sistema continua a conversa no contexto dessa sessão e retorna a resposta
 
-#### Scenario: 项目不存在
-- **WHEN** 提供的 `project_name` 对应的项目不存在
-- **THEN** 系统返回 404
+#### Scenario: Projeto inexistente
+- **WHEN** o `project_name` fornecido não corresponde a um projeto existente
+- **THEN** o sistema retorna 404
 
-#### Scenario: 响应超时
-- **WHEN** Agent 处理超过 120 秒
-- **THEN** 系统返回已收集的部分响应，`status` 为 `"timeout"`
+#### Scenario: Timeout da resposta
+- **WHEN** o processamento do Agent ultrapassa 120 segundos
+- **THEN** o sistema retorna a resposta parcial já coletada, com `status` igual a `"timeout"`
 
-### Requirement: 对话内容格式
-响应 SHALL 包含 Agent 生成的纯文本回复，去除内部工具调用细节，仅保留面向用户的回复内容。
+### Requirement: Formato do conteúdo da conversa
+A resposta SHALL conter a resposta em texto puro gerada pelo Agent, sem detalhes internos de chamadas de ferramentas, apenas o conteúdo voltado ao usuário.
 
-#### Scenario: Agent 使用工具后回复
-- **WHEN** Agent 内部调用了工具（如生成剧本）并产生文本回复
-- **THEN** 响应的 `reply` 字段仅包含面向用户的文本，不暴露工具调用细节
+#### Scenario: Resposta após o Agent usar ferramentas
+- **WHEN** o Agent chama ferramentas por dentro (ex.: gerar roteiro) e produz uma resposta em texto
+- **THEN** o campo `reply` da resposta contém apenas o texto voltado ao usuário, sem expor detalhes de chamada de ferramentas

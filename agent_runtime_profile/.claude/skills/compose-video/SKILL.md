@@ -1,78 +1,78 @@
 ---
 name: compose-video
-description: 把已生成的视频片段按剧本顺序拼接为单集成片，可选混入 BGM 与场景间转场。当用户说"拼成片"、"合成本集视频"或"加背景音乐"时使用。
+description: Concatena os clipes de vídeo já gerados na ordem do script em um filme final do episódio, com opção de misturar BGM e transições entre cenas. Use quando o usuário disser "montar o filme", "compor o vídeo deste episódio" ou "adicionar trilha".
 ---
 
-# 合成视频
+# Compor vídeo
 
-把单集已生成的视频片段（`videos/*.mp4`）按剧本顺序串接为一段成片，写入 `output/`。可选混入 BGM、按 `transition_to_next` 添加场景间转场。
+Concatena os clipes de vídeo já gerados do episódio (`videos/*.mp4`) na ordem do script em um filme único e grava em `output/`. Opcionalmente mistura BGM e aplica transições entre cenas conforme `transition_to_next`.
 
-## 适用范围（重要）
+## Escopo de aplicação (importante)
 
-- **drama + ad** — 读取剧本顶层 `scenes[]`（drama）或 `shots[]`（ad）；narration（`segments[]`）与纯 reference_video（`video_units[]`）仍请走 Web 端剪映草稿导出
-- **ad 时间线** — 可读 `project.json` 的 `ad_timeline.text_overlays`（烧录字幕叠层）与 `ad_timeline.music_track`（或 CLI `--music`）；音乐文件须在项目目录内（建议 `music/`）
-- **单集拼接** — 一次只处理一份剧本文件，不支持多集合并
-- **不实现片头片尾 / 精细 BGM 时间轴** — 高级时间线仍可用 Web 端剪映草稿导出
+- **drama + ad** — lê `scenes[]` (drama) ou `shots[]` (ad) no topo do script; narration (`segments[]`) e reference_video puro (`video_units[]`) ainda devem ir pelo export de rascunho CapCut/Jianying no Web
+- **timeline ad** — pode ler `ad_timeline.text_overlays` de `project.json` (overlays de legenda queimada) e `ad_timeline.music_track` (ou CLI `--music`); o arquivo de música deve estar dentro do diretório do projeto (sugerido: `music/`)
+- **Concatenação de um episódio** — processa um arquivo de script por vez; não suporta merge multi-episódio
+- **Não implementa intro/outro / timeline fina de BGM** — timeline avançada ainda via export de rascunho CapCut/Jianying no Web
 
-## CLI 用法
+## Uso CLI
 
-脚本必须在含 `project.json` 的项目 cwd 内运行，并使用**相对项目根 cwd** 的剧本文件名：
+O script deve rodar no cwd do projeto que contém `project.json`, usando o nome do arquivo de script **relativo à raiz do projeto (cwd)**:
 
 ```bash
-# 最简形式：按剧本顺序拼接 + 自动转场（按 transition_to_next）
+# Forma mínima: concatena na ordem do script + transições automáticas (conforme transition_to_next)
 python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json
 
-# 混入 BGM（音乐文件相对项目根 cwd 或绝对路径）
+# Misturar BGM (arquivo de música relativo à raiz do projeto ou caminho absoluto)
 python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json --music background_music.mp3
 
-# 关闭转场（一律 cut 拼接，可用于规避 xfade 编码不一致问题）
+# Desligar transições (sempre cut; útil para contornar inconsistência de codec xfade)
 python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json --no-transitions
 
-# 自定义输出文件名（输出固定落在 output/ 下）
+# Nome de saída customizado (saída fixa sob output/)
 python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json --output episode_1_final.mp4
 ```
 
-完整参数：
+Parâmetros completos:
 
-| 参数 | 类型 | 说明 |
+| Parâmetro | Tipo | Descrição |
 |---|---|---|
-| `script` | 位置参数（必填） | 剧本文件名（相对项目 cwd） |
-| `--output OUTPUT` | 可选 | 输出文件名；缺省按剧本 `novel.chapter` 字段生成。无论何种取值，最终都落在 `output/` 子目录内 |
-| `--music MUSIC` | 可选 | BGM 文件路径（相对项目 cwd 或绝对路径），但**必须解析后位于项目目录内** |
-| `--no-transitions` | flag | 全部用 cut 直接拼接，忽略剧本里的 `transition_to_next` |
+| `script` | posicional (obrigatório) | Nome do arquivo de script (relativo ao cwd do projeto) |
+| `--output OUTPUT` | opcional | Nome do arquivo de saída; se omitido, gerado a partir do campo `novel.chapter` do script. Qualquer valor, o arquivo final cai em `output/` |
+| `--music MUSIC` | opcional | Caminho do BGM (relativo ao cwd do projeto ou absoluto), mas **após resolução deve ficar dentro do diretório do projeto** |
+| `--no-transitions` | flag | Tudo em cut direto, ignora `transition_to_next` do script |
 
-## 工作流程
+## Fluxo de trabalho
 
-1. **读剧本** — 通过 `ProjectManager.load_script()` 从 `scripts/` 加载（路径过滤复用 lib 内 `_safe_subpath`）
-2. **收集片段** — 按 `scenes[i].generated_assets.video_clip` 逐个解析视频文件并校验存在
-3. **拼接** — 默认走 normalize → concat（先把每段规范化为统一 H.264/AAC，再用 concat filter 编码），有 `xfade` 转场需求时按 `transition_to_next` 加滤镜
-4. **混音** — 若指定 `--music`，再做一遍 audio mix；输出文件名追加 `_with_music`
+1. **Ler o script** — carrega de `scripts/` via `ProjectManager.load_script()` (filtro de caminho reutiliza `_safe_subpath` em lib)
+2. **Coletar clipes** — resolve um a um `scenes[i].generated_assets.video_clip` e valida existência
+3. **Concatenar** — padrão: normalize → concat (normaliza cada trecho para H.264/AAC unificado e codifica com concat filter); com necessidade de transição `xfade`, aplica filtro conforme `transition_to_next`
+4. **Mix de áudio** — se `--music` for passado, faz mais um audio mix; o nome de saída ganha sufixo `_with_music`
 
-## 支持的转场类型
+## Tipos de transição suportados
 
-按剧本字段 `scenes[i].transition_to_next` 映射：
+Mapeados a partir do campo do script `scenes[i].transition_to_next`:
 
-| 字段值 | ffmpeg 行为 |
+| Valor do campo | Comportamento ffmpeg |
 |---|---|
-| `cut`（默认） | 直接拼接，无淡入淡出 |
+| `cut` (padrão) | Concatenação direta, sem fade |
 | `fade` | `xfade=transition=fade:duration=0.5` |
 | `dissolve` | `xfade=transition=dissolve:duration=0.5` |
 | `wipe` | `xfade=transition=wipeleft:duration=0.5` |
 
-## 前置检查
+## Checagens prévias
 
-- [ ] 当前 cwd 是项目根（含 `project.json`）
-- [ ] 剧本 content_mode 为 drama（顶层有 `scenes[]`）
-- [ ] 每个场景的 `generated_assets.video_clip` 都已生成
-- [ ] `ffmpeg` / `ffprobe` 都在 PATH（脚本会预检）
-- [ ] BGM 文件存在（如指定 `--music`）
+- [ ] O cwd atual é a raiz do projeto (contém `project.json`)
+- [ ] content_mode do script é drama (topo tem `scenes[]`)
+- [ ] `generated_assets.video_clip` de cada cena já foi gerado
+- [ ] `ffmpeg` / `ffprobe` estão no PATH (o script pré-checa)
+- [ ] Arquivo de BGM existe (se `--music` for passado)
 
-## 限制 / 缺失能力
+## Limitações / capacidades ausentes
 
-下列能力**未实现**，请使用 Web 端剪映草稿导出：
+As capacidades abaixo **não estão implementadas**; use o export de rascunho CapCut/Jianying no Web:
 
-- narration / ad / reference_video 模式（脚本只识别 `scenes[]`）
-- 多集合并 / 单集分片裁剪
-- BGM 音量调节、独立 BGM 时间轴
-- 片头片尾 intro/outro
-- 字幕渲染
+- modos narration / ad / reference_video (o script só reconhece `scenes[]`)
+- merge multi-episódio / recorte em fatias de um episódio
+- ajuste de volume de BGM, timeline de BGM independente
+- intro/outro
+- renderização de legendas

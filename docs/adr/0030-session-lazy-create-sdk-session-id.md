@@ -2,11 +2,11 @@
 status: accepted
 ---
 
-# 会话发送即创建，对外身份统一为 sdk_session_id
+# Sessão se cria no envio; identidade externa unificada em sdk_session_id
 
-预建会话行需要自行生成 ID，再在 SDK 返回 session_id 后维护一张映射，且会产生「已创建但从未发言」的孤儿行。决定不预建：新会话先以临时内存态启动 actor 并发送首条消息，待 SDK init 消息返回 session_id 后才写入 DB 会话行，并把内存 key 从临时 ID 替换为真实 ID（key swap）；此后查询/更新/恢复一律以 `sdk_session_id`（UNIQUE）为对外唯一身份。
+Pré-criar linha de sessão exige gerar ID por conta própria e depois manter um mapa quando o SDK devolve session_id, e produz linhas órfãs «criadas e nunca falaram». Decidimos não pré-criar: sessão nova sobe o actor em estado temporário em memória e envia a primeira mensagem; só quando a mensagem init do SDK devolve session_id a linha de sessão grava no DB, e a key em memória troca do ID temporário para o real (key swap); daí em diante consulta/atualização/restauração usam sempre `sdk_session_id` (UNIQUE) como única identidade externa.
 
 ## Consequences
 
-- 首条消息的 SDK init 返回前，会话不可寻址（不在列表、不能按 ID 订阅/恢复）。
-- key swap 是敏感路径：任何在「已发送、init 未回」窗口内按 ID 找会话的代码都要考虑临时 ID 阶段。
+- Antes do retorno do SDK init da primeira mensagem, a sessão não é endereçável (não está na lista, não se assina/restaura por ID).
+- Key swap é caminho sensível: qualquer código que procure sessão por ID na janela «já enviou, init ainda não voltou» precisa considerar a fase de ID temporário.

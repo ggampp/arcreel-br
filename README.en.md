@@ -13,7 +13,7 @@
 <h4 align="center">Open-source AI Video Generation Workspace — Novel to Short Video, Powered by AI Agents</h4>
 
 <p align="center">
-  <a href="README.md"><img src="https://img.shields.io/badge/lang-中文-red?style=flat-square" alt="中文"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/lang-Portugu%C3%AAs-green?style=flat-square" alt="Português"></a>
   <a href="README.en.md"><img src="https://img.shields.io/badge/lang-English-blue?style=flat-square" alt="English"></a>
 </p>
 

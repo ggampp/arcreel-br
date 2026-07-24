@@ -1,29 +1,29 @@
 ## Why
 
-分镜场景板（Timeline）在 30-100 个分镜的剧集中存在严重的性能和体验问题：全量 DOM 渲染导致图片/视频同时加载撑爆带宽；任意资源变更触发全局缓存失效导致所有媒体重载；Agent 批量操作时通知仅展示其中一条导致用户感知不全。
+O painel de storyboards (Timeline) em episódios com 30–100 storyboards tem problemas graves de performance e experiência: renderização DOM completa faz imagens/vídeos carregarem ao mesmo tempo e estourar a largura de banda; qualquer mudança de recurso dispara invalidação global de cache e recarrega toda a mídia; em operações em lote do Agent, a notificação mostra só uma mudança e o usuário não percebe o conjunto.
 
 ## What Changes
 
-- **虚拟滚动**：TimelineCanvas 引入 @tanstack/react-virtual，仅渲染视口附近的 SegmentCard，从根本上减少并发请求数
-- **懒加载**：`<img>` 添加 `loading="lazy"`，`<video>` 仅在进入视口时设置 `src`
-- **精确缓存失效**：将全局 `mediaRevision: number` 替换为 `entityRevisions: Record<string, number>`（key 为 `entity_type:entity_id`），利用 SSE 事件中的 `entity_type` + `entity_id` 直接构造 key，仅递增变更实体的版本号。覆盖所有 7 个消费者：SegmentCard、CharacterCard、ClueCard、OverviewCanvas、AssetSidebar、AvatarStack、VersionTimeMachine
-- **滚动定位适配**：`useScrollTarget` 适配虚拟滚动，改用 `virtualizer.scrollToIndex()` 替代 `scrollIntoView()`
-- **通知聚合**：`useProjectEventsSSE` 中将同类变更按 `entity_type:action` 分组，toast 和 workspace notification 展示聚合文案（如"AI 新增了 3 个角色：张三、李四、王五"）
+- **Virtual scroll**: TimelineCanvas passa a usar @tanstack/react-virtual, renderizando só SegmentCards próximos ao viewport e reduzindo na raiz o número de requisições concorrentes
+- **Lazy loading**: `<img>` com `loading="lazy"`; `<video>` só define `src` ao entrar no viewport
+- **Invalidação precisa de cache**: substituir o `mediaRevision: number` global por `entityRevisions: Record<string, number>` (chave `entity_type:entity_id`), construindo a chave direto de `entity_type` + `entity_id` do evento SSE e incrementando só a entidade alterada. Cobre todos os 7 consumidores: SegmentCard, CharacterCard, ClueCard, OverviewCanvas, AssetSidebar, AvatarStack, VersionTimeMachine
+- **Adaptação do posicionamento por rolagem**: `useScrollTarget` adapta ao virtual scroll, usando `virtualizer.scrollToIndex()` no lugar de `scrollIntoView()`
+- **Agregação de notificações**: em `useProjectEventsSSE`, agrupar mudanças do mesmo tipo por `entity_type:action`; toast e workspace notification mostram texto agregado (ex.: "A IA adicionou 3 personagens: Zhang San, Li Si, Wang Wu")
 
 ## Capabilities
 
 ### New Capabilities
-- `timeline-virtual-scroll`: 时间线虚拟滚动与媒体懒加载，减少并发网络请求和 DOM 数量
-- `precise-cache-invalidation`: 按实体粒度的缓存失效机制，替代全局 mediaRevision，覆盖全部 7 个媒体消费组件
-- `batch-notification-aggregation`: SSE 变更通知聚合，将同批次同类变更合并为一条用户可读通知
+- `timeline-virtual-scroll`: virtual scroll e lazy loading de mídia na timeline, reduzindo requisições de rede concorrentes e quantidade de DOM
+- `precise-cache-invalidation`: invalidação de cache por granularidade de entidade, em substituição a mediaRevision global, cobrindo todos os 7 componentes consumidores de mídia
+- `batch-notification-aggregation`: agregação de notificações de mudanças SSE, unindo mudanças do mesmo tipo no mesmo lote em uma notificação legível
 
 ### Modified Capabilities
-（无需修改已有 spec 级行为）
+(não é necessário alterar comportamento de specs existentes)
 
 ## Impact
 
-- **前端依赖**：新增 `@tanstack/react-virtual`
-- **前端组件**：TimelineCanvas、SegmentCard（MediaColumn）、CharacterCard、ClueCard、OverviewCanvas、AssetSidebar、AvatarStack、VersionTimeMachine、useScrollTarget hook
-- **前端 Store**：app-store（entityRevisions 替换 mediaRevision）
-- **前端 Hooks**：useProjectEventsSSE（精确失效 + 通知聚合）、useProjectAssetSync（保留全量失效作为后备）
-- **后端**：无变更（SSE 事件已包含足够信息）
+- **Dependência frontend**: adicionar `@tanstack/react-virtual`
+- **Componentes frontend**: TimelineCanvas, SegmentCard (MediaColumn), CharacterCard, ClueCard, OverviewCanvas, AssetSidebar, AvatarStack, VersionTimeMachine, hook useScrollTarget
+- **Store frontend**: app-store (entityRevisions substitui mediaRevision)
+- **Hooks frontend**: useProjectEventsSSE (invalidação precisa + agregação de notificações), useProjectAssetSync (mantém invalidação total como fallback)
+- **Backend**: sem mudanças (eventos SSE já carregam informação suficiente)

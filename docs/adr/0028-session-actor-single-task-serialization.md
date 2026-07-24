@@ -2,11 +2,11 @@
 status: accepted
 ---
 
-# SessionActor：每会话单 asyncio task 串行化全部 ClaudeSDKClient 调用
+# SessionActor: um único asyncio task por sessão serializa todas as chamadas ClaudeSDKClient
 
-ClaudeSDKClient 不能安全并发调用，且其内部运行在 anyio 上，跨 task 持锁调用易死锁、破坏 SDK 内部状态机假设。决定每个 agent 会话配置一个专属 actor task，独占该会话的 ClaudeSDKClient：query/interrupt/disconnect 全部经 command queue 投递、在 actor task 内串行执行，流式接收消息期间用 `asyncio.wait` 与命令队列交错（中断不必等待整轮流式结束）；对外只通过 `on_message` 回调推送消息。否决了「调用方各自加锁」与「直接并发调用」。
+ClaudeSDKClient não pode ser chamado com concorrência segura; por dentro roda em anyio, e chamar com lock entre tasks facilita deadlock e quebra as hipóteses da máquina de estados interna do SDK. Decidimos que cada sessão agent configure um actor task dedicado, monopolizando o ClaudeSDKClient daquela sessão: query/interrupt/disconnect todos vão pela command queue e executam em série no actor task; durante o recebimento streaming de mensagens, `asyncio.wait` entrelaça com a fila de comandos (interrupt não precisa esperar o fim do stream da rodada inteira); para fora, só se empurram mensagens via callback `on_message`. Rejeitamos «cada caller com seu lock» e «chamada concorrente direta».
 
 ## Consequences
 
-- 任何新增的 SDK 操作必须走 command queue 进 actor，不得在外部 task 直接操作 client。
-- actor 是会话常驻内存的主体，生命周期（驱逐/巡检/恢复）由 SessionManager 管理（见 `docs/adr/0029`）。
+- Qualquer operação nova no SDK deve entrar no actor pela command queue; não operar o client direto em task externo.
+- O actor é o sujeito residente em memória da sessão; o ciclo de vida (expulsão/inspeção/restauração) é gerido pelo SessionManager (ver `docs/adr/0029`).

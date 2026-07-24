@@ -1,76 +1,76 @@
 ---
 name: generate-storyboard
-description: 为剧本场景生成分镜图。当用户说"生成分镜"、"预览场景画面"、想重新生成某些分镜图、或剧本中有场景缺少分镜图时使用。自动保持角色和画面连续性。
+description: Gera imagens de storyboard para cenas do script. Use quando o usuário disser "gerar storyboard", "pré-visualizar o quadro da cena", quiser regenerar certas storyboards, ou houver cenas no script sem storyboard. Mantém automaticamente consistência de personagem e continuidade de quadro.
 ---
 
-# 生成分镜图
+# Gerar storyboard
 
-通过生成队列创建分镜图，画面比例根据 content_mode 自动设置。
+Cria storyboards via fila de geração; a proporção da imagem é definida automaticamente conforme content_mode.
 
-> 生成模式规格详见 `.claude/references/generation-modes.md`。
+> Especificações dos modos de geração em `.claude/references/generation-modes.md`.
 
-## 工具调用
+## Chamadas de ferramentas
 
-**重要：生成分镜图必须调用下列 MCP 工具入队。此 skill 不提供任何 Python/Shell 脚本，不得用 BASH 调 `python .../scripts/*.py`。**
+**Importante: a geração de storyboard deve enfileirar via as ferramentas MCP abaixo. Este skill não fornece scripts Python/Shell; não use BASH para chamar `python .../scripts/*.py`.**
 
-通过 MCP 工具入队：
+Enfileirar via ferramenta MCP:
 
-| 操作 | 工具 |
+| Operação | Ferramenta |
 |------|------|
-| 提交所有缺失分镜图 | `mcp__arcreel__generate_storyboards({"script": "episode_1.json"})` |
-| 重新生成指定 ID | `mcp__arcreel__generate_storyboards({"script": "episode_1.json", "segment_ids": ["E1S05"]})` |
-| 重新生成多个 ID | `mcp__arcreel__generate_storyboards({"script": "episode_1.json", "segment_ids": ["E1S01", "E1S02"]})` |
+| Enviar todas as storyboards faltantes | `mcp__arcreel__generate_storyboards({"script": "episode_1.json"})` |
+| Regenerar IDs específicos | `mcp__arcreel__generate_storyboards({"script": "episode_1.json", "segment_ids": ["E1S05"]})` |
+| Regenerar vários IDs | `mcp__arcreel__generate_storyboards({"script": "episode_1.json", "segment_ids": ["E1S01", "E1S02"]})` |
 
-> **选择规则**：`segment_ids` 兼容 narration 的 segment_id 与 drama 的 scene_id；未传则提交所有缺失项。
+> **Regra de seleção**: `segment_ids` aceita segment_id de narration e scene_id de drama; se omitido, envia todos os faltantes.
 >
-> **依赖**：generation worker 必须在线（图像/视频两条独立通道），worker 负责实际生成与速率控制。
+> **Dependência**: o generation worker deve estar online (canais independentes de imagem/vídeo); o worker cuida da geração real e do rate control.
 
-## 工作流程
+## Fluxo de trabalho
 
-1. **加载项目和剧本** — 确认所有角色都有 `character_sheet` 图像
-2. **生成分镜图** — MCP 工具自动检测 content_mode，按相邻关系串联依赖任务
-3. **审核检查点** — 展示每张分镜图，用户可批准或要求重新生成
-4. **更新剧本** — 更新 `storyboard_image` 路径和场景状态
+1. **Carregar projeto e script** — confirmar que todos os personagens têm imagem `character_sheet`
+2. **Gerar storyboards** — a ferramenta MCP detecta content_mode automaticamente e encadeia tarefas dependentes pela relação de vizinhança
+3. **Checkpoint de revisão** — mostrar cada storyboard; o usuário aprova ou pede regeneração
+4. **Atualizar o script** — atualizar caminho `storyboard_image` e status da cena
 
-## 角色一致性机制
+## Mecanismo de consistência de personagem
 
-MCP 工具自动处理以下参考图传入，无需手动指定：
-- **character_sheet**：场景中出场角色的设计图，保持外貌一致
-- **scene_sheet / prop_sheet**：场景中出现的场景 / 道具设计图
-- **产品参考（广告/短片项目）**：镜头 `products_in_shot` 非空时自动注入产品参考并排在所有参考之前（有 product sheet 时 sheet + 原图，无 sheet 时原图直注），同时附加高保真还原指令——image_prompt 无需复述产品外观
-- **上一张分镜图**：相邻片段默认引用，提升画面连续性
-- 当片段标记 `segment_break=true` 时，跳过上一张分镜图参考
+A ferramenta MCP trata automaticamente as referências abaixo; não é preciso especificar à mão:
+- **character_sheet**: arte do personagem em cena, mantém aparência consistente
+- **scene_sheet / prop_sheet**: artes de cena / prop que aparecem na cena
+- **Referência de produto (projetos anúncio/curta)**: se o shot tem `products_in_shot` não vazio, injeta automaticamente a referência de produto **antes** de todas as outras (com product sheet: sheet + original; sem sheet: original direto) e anexa instrução de restauração em alta fidelidade — image_prompt não precisa repetir a aparência do produto
+- **Storyboard anterior**: segmentos adjacentes citam por padrão, melhorando a continuidade de quadro
+- Quando o segmento marca `segment_break=true`, pula a referência da storyboard anterior
 
-## Prompt 模板
+## Template de prompt
 
-从剧本 JSON 读取以下字段构建 prompt：
+Montar o prompt a partir dos campos do JSON do script:
 
 ```
-场景 [scene_id/segment_id] 的分镜图：
+Storyboard da cena [scene_id/segment_id]:
 
-- 画面描述：[visual.description]
-- 镜头构图：[visual.shot_type]
-- 镜头运动起点：[visual.camera_movement]
-- 光线条件：[visual.lighting]
-- 画面氛围：[visual.mood]
-- 角色：[characters_in_scene]
-- 动作：[action]
+- Descrição do quadro: [visual.description]
+- Composição do shot: [visual.shot_type]
+- Ponto de partida do movimento de câmera: [visual.camera_movement]
+- Condições de luz: [visual.lighting]
+- Atmosfera do quadro: [visual.mood]
+- Personagens: [characters_in_scene]
+- Ação: [action]
 
-风格要求：电影分镜图风格，根据项目 style 设定。
-角色必须与提供的角色参考图完全一致。
+Requisito de estilo: estilo de storyboard cinematográfico, conforme o style do projeto.
+Os personagens devem ser totalmente consistentes com as imagens de referência fornecidas.
 ```
 
-> 画面比例通过 API 参数设置，不写入 prompt。
+> A proporção da imagem é definida por parâmetro da API, não no prompt.
 
-## 生成前检查
+## Checagem pré-geração
 
-- [ ] 所有角色都有已批准的 character_sheet 图像
-- [ ] 场景视觉描述完整
-- [ ] 角色动作已指定
+- [ ] Todos os personagens têm imagem character_sheet aprovada
+- [ ] Descrição visual da cena completa
+- [ ] Ação do personagem especificada
 
-## 错误处理
+## Tratamento de erros
 
-- 单场景失败不影响批次，记录失败场景后继续
-- 生成结束后汇总报告所有失败场景和原因
-- 支持增量生成（跳过已存在的场景图）
-- 使用 `mcp__arcreel__generate_storyboards({"script": "...", "segment_ids": [...]})` 重新生成失败场景
+- Falha de uma cena não afeta o lote; registre a cena falha e continue
+- Ao fim da geração, resuma todas as cenas falhas e os motivos
+- Suporta geração incremental (pula cenas que já têm imagem)
+- Use `mcp__arcreel__generate_storyboards({"script": "...", "segment_ids": [...]})` para regenerar cenas falhas

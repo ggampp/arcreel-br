@@ -1,20 +1,20 @@
-# PDF Fixture 来源
+# Origem dos fixtures PDF
 
-均取自 pdf_oxide 项目的 [`tests/fixtures/`](https://github.com/yfedoseev/pdf_oxide/tree/main/tests/fixtures)，
-与运行时依赖同源，可避免后续 pdf_oxide 解析行为变更引入的样本兼容性漂移。
+Todos vêm de [`tests/fixtures/`](https://github.com/yfedoseev/pdf_oxide/tree/main/tests/fixtures) do projeto pdf_oxide,
+mesma origem da dependência de runtime, o que evita descompasso de compatibilidade de amostras se o comportamento de parse do pdf_oxide mudar no futuro.
 
 ## sample_text.pdf
 
-- **来源**：`tests/fixtures/1.pdf`
-- **许可证**：MIT / Apache-2.0
-- **下载日期**：2026-05-11
-- **内容**：7 页中文证券研究报告，每页 600+ CJK 字符
-- **用途**：测试 `PdfOxideExtractor` 正常文本抽取与页间分隔
+- **Origem**: `tests/fixtures/1.pdf`
+- **Licença**: MIT / Apache-2.0
+- **Data do download**: 2026-05-11
+- **Conteúdo**: 7 páginas de relatório de pesquisa de valores mobiliários em chinês, 600+ caracteres CJK por página
+- **Uso**: testar extração normal de texto e separação entre páginas do `PdfOxideExtractor`
 
 ## sample_scanned.pdf
 
-- **来源**：`tests/fixtures/encrypted_objstm.pdf`
-- **许可证**：MIT / Apache-2.0
-- **下载日期**：2026-05-11
-- **内容**：3 页，无文字图层（`extract_chars()` 返回空）
-- **用途**：测试扫描件检测路径
+- **Origem**: `tests/fixtures/encrypted_objstm.pdf`
+- **Licença**: MIT / Apache-2.0
+- **Data do download**: 2026-05-11
+- **Conteúdo**: 3 páginas, sem camada de texto (`extract_chars()` retorna vazio)
+- **Uso**: testar o caminho de detecção de documento digitalizado

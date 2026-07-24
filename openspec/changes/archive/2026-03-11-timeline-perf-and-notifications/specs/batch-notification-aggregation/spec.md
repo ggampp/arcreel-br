@@ -1,37 +1,47 @@
-## ADDED Requirements
+# batch-notification-aggregation Specification
 
-### Requirement: 同类变更聚合通知
-当一个 SSE 变更批次包含多条同类变更时，系统 MUST 将它们聚合为一条通知，而非仅展示其中一条。
+## Purpose
+Quando um lote de mudanças SSE contém várias mudanças do mesmo tipo, agregá-las em uma única notificação (toast / notificação persistente do workspace), evitando spam de toasts individuais. A lógica de agregação está em `frontend/src/utils/project-changes.ts` (`groupChangesByType` agrupa por `entity_type:action`, `formatGroupedNotificationText` gera o texto).
 
-#### Scenario: 批量新增角色
-- **WHEN** Agent 批量新增 3 个角色（张三、李四、王五），SSE 变更批次包含 3 条 `character:created` 变更
-- **THEN** 系统展示一条聚合 toast 通知："新增了 3 个角色：张三、李四、王五"
+## Requirements
+### Requirement: Agregar notificações de mudanças do mesmo tipo
+Quando um lote de mudanças SSE contém várias mudanças do mesmo tipo, o sistema MUST agregá-las em uma única notificação, em vez de exibir apenas uma delas.
 
-#### Scenario: 批量新增线索
-- **WHEN** Agent 批量新增 2 个线索（凶器、日记），SSE 变更批次包含 2 条 `clue:created` 变更
-- **THEN** 系统展示一条聚合 toast 通知："新增了 2 个线索：凶器、日记"
+#### Scenario: Adicionar personagens em lote
 
-#### Scenario: 单条变更保持原有格式
-- **WHEN** SSE 变更批次仅包含 1 条 `character:created` 变更
-- **THEN** 通知文案保持与当前行为一致（如"角色「张三」已创建"）
+- **WHEN** o Agent adiciona em lote 3 personagens (Zhang San, Li Si, Wang Wu) e o lote SSE contém 3 mudanças `character:created`
+- **THEN** o sistema exibe um toast agregado: "Foram adicionados 3 personagens: Zhang San, Li Si, Wang Wu"
 
-### Requirement: 变更分组展示
-不同类型的变更 MUST 分组展示，每组独立生成一条通知。
+#### Scenario: Adicionar props em lote
 
-#### Scenario: 混合类型变更
-- **WHEN** 一个 SSE 批次同时包含 2 条 `character:created` 和 1 条 `episode:created` 变更
-- **THEN** 系统生成两条 toast 通知：一条关于角色，一条关于剧集
+- **WHEN** o Agent adiciona em lote 2 props (arma do crime, diário) e o lote SSE contém 2 mudanças `prop:created`
+- **THEN** o sistema exibe um toast agregado: "Foram adicionados 2 props: arma do crime, diário"
 
-### Requirement: Workspace 通知聚合
-Workspace notification（非 toast 的持久通知）也 MUST 聚合展示，导航到该组第一个变更的位置。
+#### Scenario: Mudança única mantém o formato original
 
-#### Scenario: 批量角色创建的 workspace 通知
-- **WHEN** Agent 批量新增 3 个角色，source 不是 "webui"
-- **THEN** 生成一条 workspace notification，文案为聚合格式，点击导航到第一个角色
+- **WHEN** o lote SSE contém apenas 1 mudança `character:created`
+- **THEN** o texto da notificação mantém o formato atual (ex.: "Personagem «Zhang San» criado")
 
-### Requirement: 长列表截断
-当同类变更数量超过阈值时，通知文案 MUST 截断以保持可读性。
+### Requirement: Exibir mudanças agrupadas por tipo
+Mudanças de tipos diferentes MUST ser exibidas em grupos, gerando uma notificação independente por grupo.
 
-#### Scenario: 超过 5 个同类变更
-- **WHEN** 一个 SSE 批次包含 8 条 `segment:updated` 变更
-- **THEN** 通知文案截断展示，如"更新了 8 个分镜：seg_001、seg_002…等"
+#### Scenario: Lote com tipos mistos
+
+- **WHEN** um lote SSE contém 2 mudanças `character:created` e 1 mudança `episode:created`
+- **THEN** o sistema gera dois toasts: um sobre personagens e outro sobre episódios
+
+### Requirement: Agregar notificações do workspace
+Notificações do workspace (persistentes, não toast) também MUST ser agregadas, navegando para a posição da primeira mudança do grupo.
+
+#### Scenario: Workspace notification de criação de personagens em lote
+
+- **WHEN** o Agent adiciona em lote 3 personagens e a source não é "webui"
+- **THEN** é gerada uma workspace notification com texto agregado; o clique navega para o primeiro personagem
+
+### Requirement: Truncar listas longas
+Quando a quantidade de mudanças do mesmo tipo excede o limiar, o texto da notificação MUST ser truncado para manter legibilidade.
+
+#### Scenario: Mais de 5 mudanças do mesmo tipo
+
+- **WHEN** um lote SSE contém 8 mudanças `segment:updated`
+- **THEN** o texto da notificação é truncado, ex.: "Foram atualizados 8 storyboards: seg_001, seg_002… etc."

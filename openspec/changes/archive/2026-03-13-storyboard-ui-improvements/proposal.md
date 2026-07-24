@@ -1,27 +1,27 @@
 ## Why
 
-分镜板的 SegmentCard 存在两处信息缺失：分镜时长（4/6/8s）目前只读无法在界面上直接修改，导致用户必须借助其他途径调整；关联线索（场景/道具）字段在数据模型中已存在，但从未在卡片头部展示，造成创作上下文不完整。
+O SegmentCard do painel de storyboards tem duas lacunas de informação: a duração do storyboard (4/6/8s) hoje é somente leitura e não pode ser alterada direto na interface, forçando o usuário a outros caminhos; o campo de pistas associadas (cenas/props) já existe no modelo de dados, mas nunca foi exibido no cabeçalho do cartão, deixando o contexto de criação incompleto.
 
 ## What Changes
 
-- **DurationBadge → DurationSelector**：分镜时长标签由只读改为可交互，点击后弹出 Popover 选择 4s / 6s / 8s，选中后通过现有 `onUpdatePrompt` 通道写入后端；剧集 header 的总时长随数据刷新自动联动。
-- **新增 ClueStack 组件**：在 SegmentCard 头部右侧展示关联线索缩略图（圆角方形，与左侧 Lorebook 图片风格一致），悬停时弹出浮窗，显示线索名称、图片及类型标签（场景 / 道具）。
-- **角色浮窗增加"角色"标签**：AvatarPopover 在角色名旁新增 `角色` 类型标签，与线索浮窗风格统一，方便区分。
+- **DurationBadge → DurationSelector**: o rótulo de duração do storyboard deixa de ser somente leitura e passa a ser interativo; o clique abre um Popover com 4s / 6s / 8s; após a seleção, o novo valor é gravado no backend pelo canal existente `onUpdatePrompt`; a duração total no header do episódio atualiza com o refresh dos dados.
+- **Novo componente ClueStack**: no lado direito do cabeçalho do SegmentCard, exibir miniaturas das pistas associadas (quadrado arredondado, no estilo das imagens do Lorebook à esquerda); no hover, popover com nome da pista, imagem e etiqueta de tipo (cena / prop).
+- **Popover de personagem com etiqueta "Personagem"**: AvatarPopover ganha a etiqueta de tipo `Personagem` ao lado do nome, no mesmo estilo do popover de pistas, para facilitar a distinção.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `segment-duration-selector`：SegmentCard 头部的分镜时长可通过弹出选择器切换（4/6/8s），并联动更新剧集总时长显示。
-- `clue-stack-display`：SegmentCard 头部展示关联线索的图片缩略图栈，悬停浮窗显示名称、图片与类型标签（场景/道具）；角色浮窗同步新增"角色"类型标签。
+- `segment-duration-selector`: a duração do storyboard no cabeçalho do SegmentCard pode ser trocada pelo seletor em popover (4/6/8s), com atualização vinculada da duração total do episódio.
+- `clue-stack-display`: o cabeçalho do SegmentCard exibe a pilha de miniaturas das pistas associadas; no hover, o popover mostra nome, imagem e etiqueta de tipo (cena/prop); o popover de personagem ganha em sincronia a etiqueta de tipo "Personagem".
 
 ### Modified Capabilities
 
-（无现有 spec 需要变更）
+(nenhum spec existente a alterar)
 
 ## Impact
 
-- 纯前端改动，不涉及后端 API 或数据模型变更
-- 修改文件：`frontend/src/components/canvas/timeline/SegmentCard.tsx`、`frontend/src/components/ui/AvatarStack.tsx`
-- 新增文件：`frontend/src/components/ui/ClueStack.tsx`
-- 后端 PATCH `/projects/{name}/segments/{segment_id}` 已支持 `duration_seconds` 字段，无需改动
+- Só mudanças no frontend; sem alteração de API de backend nem de modelo de dados
+- Arquivos modificados: `frontend/src/components/canvas/timeline/SegmentCard.tsx`, `frontend/src/components/ui/AvatarStack.tsx`
+- Arquivo novo: `frontend/src/components/ui/ClueStack.tsx`
+- O PATCH de backend `/projects/{name}/segments/{segment_id}` já suporta o campo `duration_seconds`; sem mudanças necessárias

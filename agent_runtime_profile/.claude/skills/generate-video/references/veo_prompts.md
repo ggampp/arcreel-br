@@ -1,105 +1,105 @@
-# Veo 3.1 Video Generation Prompt Guide
+# Guia de Prompt de Geração de Vídeo Veo 3.1
 
-Best practices for creating effective prompts for Veo 3.1 video generation.
+Boas práticas para criar prompts eficazes de geração de vídeo com Veo 3.1.
 
-## Prompt Structure
+## Estrutura do Prompt
 
-按照 Veo 最佳实践，prompt 应包含以下元素（自然融合，不使用标签）：
+Segundo as melhores práticas do Veo, o prompt deve conter os elementos abaixo (fundidos naturalmente, sem rótulos):
 
-1. **Composition** 构图：镜头类型（wide shot, close-up, medium shot）
-2. **Subject** 主体：场景描述，包含角色、环境、物体
-3. **Action** 动作：角色在做什么
-4. **Dialogue** 对话：Speaker（manner）说道："text"
-5. **Sound Effects** 音效：自然融入场景描述
-6. **Camera** 镜头：运动方式的自然描述
-7. **Ambiance** 氛围：光线和情绪
+1. **Composition** composição: tipo de shot (wide shot, close-up, medium shot)
+2. **Subject** sujeito: descrição da cena com personagens, ambiente e objetos
+3. **Action** ação: o que o personagem está fazendo
+4. **Dialogue** diálogo: Speaker (maneira) diz: "texto"
+5. **Sound Effects** efeitos sonoros: integrados naturalmente à descrição da cena
+6. **Camera** câmera: descrição natural do movimento
+7. **Ambiance** atmosfera: luz e emoção
 
-**重要**：不要在 prompt 中写入以下内容（这些通过 API 参数传递）：
-- 视频时长（如 "8 秒"）
-- 宽高比（如 "16:9"、"9:16"）
+**Importante**: não escreva no prompt o seguinte (isso vai por parâmetro da API):
+- Duração do vídeo (ex.: "8 segundos")
+- Proporção (ex.: "16:9", "9:16")
 
-## Dialogue and Audio
+## Diálogo e Áudio
 
-### 对话格式
+### Formato de diálogo
 ```
-男人（手握猎刀）说道："这不是普通的熊。"
-女人（声音因恐惧而紧绷，四处张望）说道："那是什么？"
-```
-
-使用引号包裹对话内容，在括号中描述动作和说话方式。
-
-### 说话方式描述
-- `轻声`, `低语`, `大喊`, `喃喃自语`
-- `温柔地`, `紧张地`, `坚定地`
-- `低沉的男声`, `清脆的女声`
-
-### 音效（自然融入）
-不使用 "音效：" 标签，而是自然描述：
-```
-一声粗犷的吠叫，树枝折断的声音，潮湿泥土上的脚步声。一只孤鸟鸣叫。
+O homem (segurando a faca de caça) diz: "Isso não é um urso comum."
+A mulher (voz tensa de medo, olhando em volta) diz: "O que é isso?"
 ```
 
+Use aspas no conteúdo do diálogo e, entre parênteses, descreva ação e maneira de falar.
+
+### Descrições de maneira de falar
+- `baixinho`, `sussurrando`, `gritando`, `murmurando`
+- `com ternura`, `com nervosismo`, `com firmeza`
+- `voz grave de homem`, `voz clara de mulher`
+
+### Efeitos sonoros (integrados naturalmente)
+Não use o rótulo "efeito sonoro:"; descreva naturalmente:
 ```
-轮胎尖锐的刹车声，引擎轰鸣。
+Um latido rouco, o estalo de galhos, passos na terra úmida. Um pássaro solitário pia.
 ```
 
-### 关于 BGM
-- **不要在 prompt 中描述背景音乐**
-- BGM 通过 `negative_prompt` 参数自动禁止
-- 后期配乐使用 `/compose-video` 处理
+```
+O guincho agudo de pneus, o motor rugindo.
+```
 
-## Camera Movement
+### Sobre BGM
+- **Não descreva trilha de fundo no prompt**
+- BGM é proibido automaticamente via parâmetro `negative_prompt`
+- Trilha de pós-produção via `/compose-video`
 
-| 英文术语 | 中文描述 |
+## Movimento de câmera
+
+| Termo em inglês | Descrição em português |
 |---------|---------|
-| static | 镜头静止 |
-| pan left/right | 镜头向左/右平移 |
-| tilt up/down | 镜头向上/下倾斜 |
-| dolly in/out | 镜头缓缓推进/拉远 |
-| track left/right | 镜头向左/右跟踪移动 |
-| crane up/down | 镜头升起/降落 |
-| handheld | 手持镜头轻微晃动 |
+| static | câmera parada |
+| pan left/right | pan da câmera para a esquerda/direita |
+| tilt up/down | tilt da câmera para cima/baixo |
+| dolly in/out | câmera avança/afasta devagar |
+| track left/right | tracking da câmera para a esquerda/direita |
+| crane up/down | câmera sobe/desce |
+| handheld | câmera na mão com leve tremor |
 
-## Shot Types
+## Tipos de shot
 
-| 英文术语 | 中文术语 | 适用场景 |
+| Termo em inglês | Termo em português | Uso |
 |---------|---------|---------|
-| extreme close-up | 特写 | 情绪、细节 |
-| close-up | 近景 | 面部、对话 |
-| medium shot | 中景 | 上半身、对话 |
-| full shot | 全景 | 全身 |
-| wide shot | 远景 | 环境、建立镜头 |
-| aerial | 俯瞰 | 鸟瞰视角 |
+| extreme close-up | extreme close-up / detalhe extremo | emoção, detalhe |
+| close-up | close / close-up | rosto, diálogo |
+| medium shot | plano médio | tronco superior, diálogo |
+| full shot | plano inteiro | corpo inteiro |
+| wide shot | plano geral | ambiente, establishing shot |
+| aerial | vista aérea | perspectiva de cima |
 
 ## Negative Prompts
 
-使用 `negative_prompt` API 参数排除不想要的元素：
-- ❌ 不要使用否定语言："no walls"
-- ✅ 直接描述不想要的内容："walls, frames, borders"
+Use o parâmetro de API `negative_prompt` para excluir elementos indesejados:
+- ❌ Não use linguagem negativa: "no walls"
+- ✅ Descreva diretamente o que não quer: "walls, frames, borders"
 
-默认 negative prompt（自动应用）：
+Negative prompt padrão (aplicado automaticamente):
 ```
 background music, BGM, soundtrack, musical accompaniment
 ```
 
-## Examples
+## Exemplos
 
-### 对话与氛围场景
+### Cena de diálogo e atmosfera
 ```
-wide shot，迷雾笼罩的太平洋西北森林。两个疲惫的徒步者，一男一女，穿过蕨类植物丛，男人突然停下，盯着一棵树。close-up：树皮上有新鲜的深深的爪痕。男人（手握猎刀）说道："这不是普通的熊。" 女人（声音因恐惧而紧绷，四处张望）说道："那是什么？" 一声粗犷的吠叫，树枝折断的声音，潮湿泥土上的脚步声。一只孤鸟鸣叫。
-```
-
-### 详细描写场景
-```
-close-up 电影镜头跟随一个绝望的男人，他身穿破旧的绿色风衣，在一面粗糙的砖墙上拨打转盘电话，笼罩在绿色霓虹灯诡异的光芒中。镜头缓缓推进，揭示他下巴的紧绷和脸上刻满的绝望，他挣扎着试图打通电话。浅景深聚焦在他紧皱的眉头和黑色转盘电话上，背景模糊成霓虹色彩和模糊阴影的海洋，营造出紧迫感和孤立感。
+wide shot, floresta enevoada do noroeste do Pacífico. Dois caminhantes exaustos, um homem e uma mulher, atravessam um matagal de samambaias; o homem para de repente e fita uma árvore. close-up: na casca, marcas profundas e frescas de garras. O homem (segurando a faca de caça) diz: "Isso não é um urso comum." A mulher (voz tensa de medo, olhando em volta) diz: "O que é isso?" Um latido rouco, o estalo de galhos, passos na terra úmida. Um pássaro solitário pia.
 ```
 
-### 动画风格场景
+### Cena de descrição detalhada
 ```
-一个欢快卡通风格的 3D 动画场景。一只有着雪豹般皮毛、大大的富有表情的眼睛、友好圆润外形的可爱生物，欢快地在异想天开的冬季森林中蹦跳。场景中有圆润的积雪覆盖的树木、轻柔飘落的雪花，以及透过树枝洒下的温暖阳光。生物弹跳的动作和灿烂的笑容传达出纯粹的喜悦。明亮、欢快的色彩和活泼的动画，温馨治愈的基调。
+close-up cinematográfico segue um homem desesperado de casaco verde surrado discando um telefone de disco em uma parede de tijolo bruto, banhado pelo brilho sinistro de neon verde. A câmera avança devagar, revelando a mandíbula tensa e o desespero gravado no rosto enquanto ele luta para completar a ligação. Pouca profundidade de campo concentra-se na sobrancelha franzida e no telefone de disco preto; o fundo se dissolve em um mar de cores neon e sombras borradas, criando urgência e isolamento.
 ```
 
-### 图生视频场景
+### Cena em estilo de animação
 ```
-一段超现实、电影感的微距视频。小小的冲浪者在石头洗手池里乘着永不停歇的翻滚波浪。一个老式黄铜水龙头正在流水，制造出无尽的海浪。镜头缓缓平移过这个异想天开、阳光明媚的场景，微型角色熟练地在碧绿的水面上划水。
+Uma cena de animação 3D alegre em estilo cartoon. Uma criatura fofa com pelagem de leopardo-das-neves, olhos grandes e expressivos e forma amigável e arredondada pula com alegria por uma floresta de inverno fantasiosa. A cena tem árvores arredondadas cobertas de neve, flocos caindo suaves e luz quente filtrando pelos galhos. O salto da criatura e o sorriso radiante transmitem pura alegria. Cores vivas e animação animada, tom aconchegante e reconfortante.
+```
+
+### Cena imagem→vídeo
+```
+Um vídeo surreal e cinematográfico em macro. Minúsculos surfistas pegam ondas que nunca param em uma pia de pedra. Uma torneira antiga de latão escorre água, criando um mar sem fim. A câmera faz pan devagar por essa cena fantasiosa e ensolarada; os personagens miniatura deslizam com habilidade sobre a água esverdeada.
 ```

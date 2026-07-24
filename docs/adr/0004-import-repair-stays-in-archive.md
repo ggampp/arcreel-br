@@ -2,19 +2,19 @@
 status: proposed
 ---
 
-# 导入修复留在 archive，不走保存统一入口；泄漏的形状常量收敛到既有真相源
+# Reparo de importação fica no archive, não na entrada unificada de save; constantes de forma vazadas convergem para a fonte de verdade existente
 
-`project_archive` 的导入路径会对用户上传的、可能残缺/错乱的归档做大量「急救式修复」：从 `versions/` 回溯旧版本文件、把任意布局里的路径猜回正确位置、按文件名建索引匹配、缺资产定义则拦截。一次架构走查建议新增 `ProjectManager.restore_from_staging()` 独占这些修复，让「导入路径 = 保存路径 = 同套保证」。我们**否决**该建议：这些急救逻辑是导入特有的 I/O，不是 ProjectManager 的领域知识（PM 只操作已安装、规整的项目目录）；导入的契约（使劲修 + 缺定义就拦截）与保存统一入口 `_write_script_unlocked` 的「不更坏」语义（ADR-0002，接受改前就坏的旧剧本）本就不同，强行合一会把两种契约搅在一起，还会往候选 6 要瘦身的 94 方法 PM 上帝模块里再塞约 580 行。
+O caminho de importação de `project_archive` faz muito «reparo de emergência» em arquivos enviados pelo usuário, possivelmente incompletos/bagunçados: rebobinar arquivos de versão antigos em `versions/`, adivinhar caminhos de layouts arbitrários de volta para o lugar certo, indexar por nome de arquivo e casar, bloquear se faltar definição de asset. Uma varredura de arquitetura sugeriu adicionar `ProjectManager.restore_from_staging()` para monopolizar esses reparos, de modo que «caminho de importação = caminho de save = o mesmo conjunto de garantias». **Rejeitamos** a sugestão: essa lógica de emergência é I/O próprio da importação, não conhecimento de domínio do ProjectManager (PM só opera em diretórios de projeto já instalados e organizados); o contrato da importação (consertar com força + bloquear se faltar definição) é diferente da semântica «não piorar» da entrada unificada de save `_write_script_unlocked` (ADR-0002, que aceita roteiros legados já ruins antes da edição) — forçar união misturaria os dois contratos e ainda empurraria ~580 linhas no módulo deus PM de 94 métodos que o candidato 6 quer emagrecer.
 
-`project_archive` 真正的领域知识泄漏只有「重复的形状常量」：
+O único vazamento real de conhecimento de domínio em `project_archive` são «constantes de forma duplicadas»:
 
-- **canonical 资源路径**（`resource_type` → 项目内相对路径，如 `characters/{id}.png`、`videos/scene_{id}.mp4`）此前三处各抄一份——`MediaGenerator.OUTPUT_PATTERNS`（写侧）、`versions.py::_resolve_resource_path`（回溯侧）、`project_archive._canonical_resource_path`（导入侧）。收敛为单一函数，三处统一消费。
-- **content_mode → 剧本字段名分派**（narration 用 `segments`/`segment_id`、drama 用 `scenes`/`scene_id`）此前 archive 手写 `if/else` 重抄了 `script_models` 已声明的字段。收敛到 `script_models`，archive 调用而非自推导。
+- **Caminhos canônicos de recurso** (`resource_type` → caminho relativo no projeto, ex. `characters/{id}.png`, `videos/scene_{id}.mp4`) estavam copiados em três lugares — `MediaGenerator.OUTPUT_PATTERNS` (escrita), `versions.py::_resolve_resource_path` (rebobinar), `project_archive._canonical_resource_path` (importação). Convergem para uma única função, consumida pelos três.
+- **Despacho content_mode → nomes de campos do roteiro** (narration usa `segments`/`segment_id`, drama usa `scenes`/`scene_id`) era `if/else` manual no archive reescrevendo campos já declarados em `script_models`. Converge para `script_models`; o archive chama em vez de rederivar.
 
-`generated_assets` 模板已委托 `PM.create_generated_assets`（非副本），无需处理。
+O template de `generated_assets` já delega a `PM.create_generated_assets` (não é cópia); nada a fazer.
 
 ## Consequences
 
-- 与候选 6（拆分 PM 上帝模块）**解耦**：本决策不动 PM，可独立随时落地，不必等 PM 拆分。走查原文说「与候选 6 天然配套」在此反转。
-- 保存统一入口仍是剧本写入的单一守卫点（ADR-0002/0003）；导入是**刻意的例外**——它在装入项目目录前先急救脏归档，这层修复发生在统一入口之外。记此 ADR 即为拦住未来「把导入也并进统一入口」的好心改动。
-- canonical 路径函数实际跨两个家族：媒体资源（storyboards/videos/grids/reference_videos，归 `MediaGenerator.OUTPUT_PATTERNS`）与角色/场景/道具 sheet（归 `asset_types.bucket_key`）；另有 `characters/refs/{name}.png`（reference_image）不在任何现有 map 内。函数内部分流或先合并这些源，属实现细节。
+- **Desacoplado** do candidato 6 (dividir o módulo deus PM): esta decisão não mexe no PM e pode aterrissar a qualquer hora, sem esperar a divisão do PM. O texto da varredura que dizia «naturalmente emparelhado com o candidato 6» se inverte aqui.
+- A entrada unificada de save continua o único ponto de guarda para escrita de roteiro (ADR-0002/0003); importação é **exceção deliberada** — repara o arquivo sujo antes de instalar no diretório do projeto, e esse reparo ocorre fora da entrada unificada. Registrar este ADR bloqueia futuras mudanças bem-intencionadas do tipo «também meter a importação na entrada unificada».
+- A função de caminho canônico na prática cruza duas famílias: recursos de mídia (storyboards/videos/grids/reference_videos, em `MediaGenerator.OUTPUT_PATTERNS`) e sheets de personagem/cena/prop (em `asset_types.bucket_key`); além disso `characters/refs/{name}.png` (reference_image) não está em nenhum map existente. Bifurcar por dentro da função ou unificar essas fontes antes é detalhe de implementação.

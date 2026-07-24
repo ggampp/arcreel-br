@@ -2,24 +2,24 @@
 status: accepted
 ---
 
-# 广告/短片为第三内容类型：剧本骨架唯一、生成路径正交
+# Ad/curta-metragem como terceiro tipo de conteúdo: esqueleto de roteiro único, caminhos de geração ortogonais
 
-广告/短片模式（带货短视频为主场景）产出单个视频而非多集系列，需要进入类型系统。此前 reference_video 作为 generation_mode 取值却整体更换剧本骨架（video_units 取代 segments/scenes，content_mode 不参与结构选择），两个维度并不真正正交；若广告模式也以「换骨架」方式落地，口播文案、字幕导出、费用预估、状态计算将在两种结构里各活一份。决定：`ad` 作为 content_mode 第三值落地，且 ad 的剧本骨架唯一、不随生成路径更换。
+O modo ad/curta (principalmente short video de venda) produz um único vídeo, não série multi-episódio, e precisa entrar no sistema de tipos. Antes, reference_video como valor de generation_mode trocava o esqueleto de roteiro inteiro (video_units no lugar de segments/scenes; content_mode não participava da escolha de estrutura) — as duas dimensões não eram de fato ortogonais; se o modo ad também aterrissasse «trocando o esqueleto», texto de voiceover, export de legendas, estimativa de custo e cálculo de status viveriam em duplicata nas duas estruturas. Decidimos: `ad` aterrissa como terceiro valor de content_mode, e o esqueleto de roteiro de ad é único, sem trocar conforme o caminho de geração.
 
-## 决定
+## Decisão
 
-- **`ad` 为 content_mode 第三值**：复用全部按 content_mode 分派的机制（profile 变体 `CLAUDE.ad.md`、SCRIPT_SHAPES、创建后不可变约束、StatusCalculator 分派）。
-- **剧本骨架唯一**：ad 剧本为平铺 `shots[]`（`shot_id`，E1S{n}），每镜头携带 `section` 标签（带货框架 hook→…→cta 为镜头属性而非嵌套结构）与一等口播文案 `voiceover_text`。两条生成路径消费同一份剧本：storyboard 路径逐镜头出图出视频；reference_video 路径把镜头**派生分组**为 video_unit（轻量索引仅引用 shot_id 与参考集，不复制内容），ad 镜头与 R2V Shot 一一对应。generation_mode 在 ad 下成为真正正交的「视频来源」维度。
-- **ad 仅开放 storyboard 与 reference_video**：grid 不开放——宫格单格分辨率与产品高保真目标冲突，其画风一致性价值在 ad 由产品/风格参考承载。
-- **恒单集承载**：ad 项目 episodes 恒为 `[{episode: 1, …}]`，剧本即 `scripts/episode_1.json`；按集机械（状态/归档/版本/费用/导出）零结构改动，前端对 ad 隐藏集语义。未来「一产品多变体」以每集=一个变体扩展。
-- **镜头时长约束按 generation_mode 动态注入**：storyboard 路径按 supported_durations 硬枚举（模型能力约束）；reference 路径 1–15s 自由整数（短切节奏赖此成立）。骨架统一，值约束随路径。
+- **`ad` como terceiro valor de content_mode**: reutiliza todos os mecanismos despachados por content_mode (variante de profile `CLAUDE.ad.md`, SCRIPT_SHAPES, imutável após criar, despacho do StatusCalculator).
+- **Esqueleto de roteiro único**: o roteiro ad é `shots[]` plano (`shot_id`, E1S{n}); cada shot carrega rótulo `section` (o framework de venda hook→…→cta é atributo do shot, não estrutura aninhada) e texto de voiceover de primeira classe `voiceover_text`. Os dois caminhos de geração consomem o mesmo roteiro: o caminho storyboard gera imagem e vídeo shot a shot; o caminho reference_video **deriva grupos** dos shots em video_unit (índice leve que só referencia shot_id e o conjunto de referências, sem copiar conteúdo); shots ad e R2V Shot correspondem 1:1. generation_mode sob ad vira de fato a dimensão ortogonal «origem do vídeo».
+- **ad só abre storyboard e reference_video**: grid não abre — a resolução por célula do grid conflita com o objetivo de alta fidelidade do produto; o valor de consistência de estilo em ad é carregado por produto/referência de estilo.
+- **Sempre um único episódio**: episodes de projeto ad é sempre `[{episode: 1, …}]`, o roteiro é `scripts/episode_1.json`; a maquinaria por episódio (status/arquivo/versão/custo/export) zero mudança estrutural; o frontend esconde a semântica de episódio em ad. No futuro, «um produto, várias variantes» estende com cada episódio = uma variante.
+- **Restrição de duração do shot injetada dinamicamente por generation_mode**: caminho storyboard enumera duro por supported_durations (restrição de capacidade do modelo); caminho reference inteiro livre 1–15s (ritmo de corte curto depende disso). Esqueleto unificado; restrição de valor segue o caminho.
 
-## 为何不沿用「换骨架」语义、也不先升格 reference_video
+## Por que não reutilizar a semântica «trocar esqueleto» nem elevar reference_video primeiro
 
-口播文案必须跨路径单源（字幕导出与后续 TTS 的输入），双骨架使其在两种结构中重复存在并迫使下游全面双分支。先把 reference_video 升格为顶层类型再落 ad，会让顶层枚举混入「内容语义」（narration/drama/ad）与「生成骨架」（reference_video）两种性质——这正是 generation_mode 此前被批评的维度混淆上移一层，且让 ad 上线被一次大重构阻塞。ad 的「不吞骨架」形态反过来为存量问题提供了改造范本：narration/drama 下的 reference_video 可参照此形态回归纯 generation_mode，升格方案需据此重评。
+O texto de voiceover precisa de fonte única cross-caminho (export de legendas e entrada futura de TTS); esqueleto duplo o duplicaria nas duas estruturas e forçaria ramo duplo em todo o downstream. Elevar reference_video a tipo de topo e só então aterrissar ad misturaria no enum de topo «semântica de conteúdo» (narration/drama/ad) e «esqueleto de geração» (reference_video) — exatamente a confusão de dimensões pela qual generation_mode foi criticado, subindo uma camada, e bloquearia o lançamento de ad atrás de uma grande refatoração. A forma «não engolir o esqueleto» de ad, por outro lado, vira modelo de reforma do problema legado: reference_video sob narration/drama pode voltar a generation_mode puro nessa forma; o plano de elevação precisa ser reavaliado à luz disso.
 
 ## Consequences
 
-- VALID_CONTENT_MODES、SCRIPT_SHAPES、profile manifest、数据校验器、创建向导随第三值扩展；ad 专属字段（`target_duration`、`brief`、`products` bucket）见提案与 ADR 0034。
-- 分集账本重设计需把 ad 视为恒单条账本/豁免拆分规划，不得对 content_mode 做二值假设。
-- 派生 video_unit 索引持久于剧本 JSON，shots 为内容唯一真相；重生成单个 unit 时分组可复现。
+- VALID_CONTENT_MODES, SCRIPT_SHAPES, profile manifest, validador de dados e assistente de criação se estendem com o terceiro valor; campos exclusivos de ad (`target_duration`, `brief`, bucket `products`) estão na proposta e no ADR 0034.
+- O redesenho do ledger de episódios precisa tratar ad como ledger de uma única entrada / isento de planejamento de split, sem assumir content_mode binário.
+- O índice derivado de video_unit persiste no JSON do roteiro; shots são a única verdade de conteúdo; ao regenerar um unit, o agrupamento é reproduzível.

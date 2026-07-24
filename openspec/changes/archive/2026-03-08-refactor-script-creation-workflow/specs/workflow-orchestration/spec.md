@@ -1,77 +1,77 @@
 ## ADDED Requirements
 
-### Requirement: manga-workflow 编排 skill 须具备项目状态检测能力
+### Requirement: A skill de orquestração manga-workflow deve detectar o estado do projeto
 
-manga-workflow skill 被加载后，SHALL 自动检测当前项目的工作流状态，基于 project.json 和文件系统判断当前所处阶段。
+Após carregar a skill manga-workflow, ela SHALL detectar automaticamente o estado do fluxo de trabalho do projeto atual, com base em project.json e no sistema de arquivos, para determinar a etapa atual.
 
-#### Scenario: 新项目无角色和线索
-- **WHEN** project.json 中 characters 和 clues 为空
-- **THEN** 编排 skill 判定当前阶段为"全局角色/线索设计"，指引主 agent dispatch `analyze-characters-clues` subagent
+#### Scenario: Projeto novo sem personagens e pistas
+- **WHEN** characters e clues em project.json estão vazios
+- **THEN** a skill de orquestração classifica a etapa atual como "design global de personagens/pistas" e orienta o agente principal a despachar o subagent `analyze-characters-clues`
 
-#### Scenario: 已有角色但无 drafts 中间文件
-- **WHEN** project.json 中 characters 非空，但 `drafts/episode_{N}/` 目录不存在或为空
-- **THEN** 编排 skill 判定当前阶段为"单集预处理"，指引主 agent dispatch 对应模式的预处理 subagent
+#### Scenario: Já há personagens, mas sem arquivos intermediários em drafts
+- **WHEN** characters em project.json não está vazio, mas o diretório `drafts/episode_{N}/` não existe ou está vazio
+- **THEN** a skill de orquestração classifica a etapa como "pré-processamento de episódio" e orienta o agente principal a despachar o subagent de pré-processamento do modo correspondente
 
-#### Scenario: 已有 drafts 但无 scripts
-- **WHEN** `drafts/episode_{N}/` 中间文件存在，但 `scripts/episode_{N}.json` 不存在
-- **THEN** 编排 skill 判定当前阶段为"JSON 剧本生成"，指引主 agent dispatch `create-episode-script` subagent
+#### Scenario: Já há drafts, mas sem scripts
+- **WHEN** os arquivos intermediários em `drafts/episode_{N}/` existem, mas `scripts/episode_{N}.json` não existe
+- **THEN** a skill de orquestração classifica a etapa como "geração de roteiro JSON" e orienta o agente principal a despachar o subagent `create-episode-script`
 
-#### Scenario: 已有 scripts 但缺少资产
-- **WHEN** `scripts/episode_{N}.json` 存在，但 characters/ 或 storyboards/ 或 videos/ 中有缺失资产
-- **THEN** 编排 skill 判定当前阶段为"资产生成"，指引主 agent dispatch 对应的资产生成 subagent
+#### Scenario: Já há scripts, mas faltam ativos
+- **WHEN** `scripts/episode_{N}.json` existe, mas há ativos faltando em characters/ ou storyboards/ ou videos/
+- **THEN** a skill de orquestração classifica a etapa como "geração de ativos" e orienta o agente principal a despachar o subagent de geração de ativos correspondente
 
-### Requirement: 编排 skill 须定义阶段间的 dispatch 和确认协议
+### Requirement: A skill de orquestração deve definir protocolo de dispatch e confirmação entre etapas
 
-每个阶段的 subagent 返回后，主 agent SHALL 向用户展示结果摘要并等待确认，确认后才进入下一阶段。
+Após o retorno do subagent de cada etapa, o agente principal SHALL exibir o resumo do resultado ao usuário e aguardar confirmação antes de avançar para a próxima etapa.
 
-#### Scenario: subagent 返回角色/线索提取结果
-- **WHEN** `analyze-characters-clues` subagent 完成并返回
-- **THEN** 主 agent 展示角色/线索数量和名称列表摘要，使用 AskUserQuestion 获取用户确认，确认后进入下一阶段
+#### Scenario: Subagent retorna resultado da extração de personagens/pistas
+- **WHEN** o subagent `analyze-characters-clues` conclui e retorna
+- **THEN** o agente principal exibe o resumo de quantidades e nomes de personagens/pistas, obtém confirmação do usuário via AskUserQuestion e, após confirmar, avança para a próxima etapa
 
-#### Scenario: 用户拒绝 subagent 结果
-- **WHEN** 用户对某阶段的结果不满意
-- **THEN** 主 agent 可选择重新 dispatch 同一 subagent（附加用户反馈）或允许用户手动编辑后继续
+#### Scenario: Usuário rejeita o resultado do subagent
+- **WHEN** o usuário não está satisfeito com o resultado de uma etapa
+- **THEN** o agente principal pode re-despachar o mesmo subagent (com o feedback do usuário) ou permitir edição manual antes de continuar
 
-#### Scenario: 用户选择跳过某阶段
-- **WHEN** 用户明确表示跳过当前阶段
-- **THEN** 主 agent 跳过该阶段，直接进入下一阶段
+#### Scenario: Usuário escolhe pular uma etapa
+- **WHEN** o usuário declara explicitamente pular a etapa atual
+- **THEN** o agente principal pula essa etapa e vai direto para a próxima
 
-### Requirement: 编排 skill 须支持灵活入口点
+### Requirement: A skill de orquestração deve suportar pontos de entrada flexíveis
 
-manga-workflow SHALL 支持从任意阶段开始执行，而非强制从头开始。
+manga-workflow SHALL permitir iniciar a execução em qualquer etapa, sem forçar o início do zero.
 
-#### Scenario: 用户只想做角色设计
-- **WHEN** 用户请求"分析小说角色"但不需要创建剧本
-- **THEN** 主 agent 只 dispatch `analyze-characters-clues` subagent，完成后不自动进入下一阶段
+#### Scenario: Usuário só quer design de personagens
+- **WHEN** o usuário pede "analisar personagens do romance" sem precisar criar roteiro
+- **THEN** o agente principal despacha apenas o subagent `analyze-characters-clues` e, ao concluir, não avança automaticamente para a próxima etapa
 
-#### Scenario: 用户已有角色想直接创建剧本
-- **WHEN** project.json 中已有角色/线索定义，用户请求创建某集剧本
-- **THEN** 编排 skill 跳过角色/线索提取阶段，直接进入单集预处理阶段
+#### Scenario: Usuário já tem personagens e quer criar roteiro diretamente
+- **WHEN** project.json já tem definições de personagens/pistas e o usuário pede para criar o roteiro de um episódio
+- **THEN** a skill de orquestração pula a etapa de extração de personagens/pistas e entra diretamente no pré-processamento de episódio
 
-#### Scenario: 用户想续做上次中断的工作
-- **WHEN** 用户运行 /manga-workflow，项目有部分完成的工作
-- **THEN** 编排 skill 通过状态检测自动定位到上次中断的阶段，从该阶段继续
+#### Scenario: Usuário quer retomar o trabalho interrompido
+- **WHEN** o usuário executa /manga-workflow e o projeto tem trabalho parcialmente concluído
+- **THEN** a skill de orquestração localiza automaticamente a etapa em que parou via detecção de estado e continua a partir dali
 
-### Requirement: 编排 skill 须正确传递上下文给 subagent
+### Requirement: A skill de orquestração deve repassar o contexto correto ao subagent
 
-主 agent dispatch subagent 时，SHALL 只传递该 subagent 任务所需的最小上下文（文件路径和关键参数），而非大块原始内容。
+Ao despachar um subagent, o agente principal SHALL repassar apenas o contexto mínimo necessário à tarefa (caminhos de arquivo e parâmetros-chave), e não blocos grandes de conteúdo bruto.
 
-#### Scenario: dispatch 角色/线索提取 subagent
-- **WHEN** 主 agent dispatch `analyze-characters-clues`
-- **THEN** 传递项目名称、source 目录路径、已有角色/线索名称列表；subagent 自行读取小说原文
+#### Scenario: Despachar subagent de extração de personagens/pistas
+- **WHEN** o agente principal despacha `analyze-characters-clues`
+- **THEN** repassa nome do projeto, caminho do diretório source e lista de nomes de personagens/pistas já existentes; o subagent lê o romance sozinho
 
-#### Scenario: dispatch 单集预处理 subagent
-- **WHEN** 主 agent dispatch 预处理 subagent
-- **THEN** 传递项目名称、集数、content_mode、角色/线索名称列表；subagent 自行读取对应的小说文本
+#### Scenario: Despachar subagent de pré-processamento de episódio
+- **WHEN** o agente principal despacha o subagent de pré-processamento
+- **THEN** repassa nome do projeto, número do episódio, content_mode e lista de nomes de personagens/pistas; o subagent lê o trecho correspondente do romance sozinho
 
-### Requirement: 资产生成阶段通过 subagent 调用 skill
+### Requirement: Etapa de geração de ativos chama skill via subagent
 
-生成类 skill（generate-characters、generate-clues、generate-storyboard、generate-video）SHALL 通过 subagent 调用，而非主 agent 直接调用。
+Skills de geração (generate-characters, generate-clues, generate-storyboard, generate-video) SHALL ser chamadas via subagent, e não diretamente pelo agente principal.
 
-#### Scenario: 生成角色设计图
-- **WHEN** 编排进入角色设计阶段
-- **THEN** 主 agent dispatch subagent，subagent 内部通过 Bash 工具调用 generate_character.py 脚本，返回生成结果摘要
+#### Scenario: Gerar imagens de design de personagens
+- **WHEN** a orquestração entra na etapa de design de personagens
+- **THEN** o agente principal despacha um subagent; o subagent chama internamente o script generate_character.py via Bash e retorna o resumo do resultado
 
-#### Scenario: 批量生成分镜图
-- **WHEN** 编排进入分镜图生成阶段
-- **THEN** 主 agent dispatch subagent，subagent 内部调用 generate_storyboard.py 脚本，处理所有待生成的分镜图，返回成功/失败汇总摘要
+#### Scenario: Gerar storyboards em lote
+- **WHEN** a orquestração entra na etapa de geração de storyboards
+- **THEN** o agente principal despacha um subagent; o subagent chama internamente o script generate_storyboard.py, processa todos os storyboards pendentes e retorna o resumo de sucessos/falhas

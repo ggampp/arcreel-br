@@ -2,11 +2,11 @@
 status: accepted
 ---
 
-# 内核沙箱不可用时 server 启动硬失败，仅 Windows 文档化降级
+# Sandbox de kernel indisponível: falha dura no startup do server; só Windows tem degradação documentada
 
-Agent 工具的安全模型以内核沙箱（macOS Seatbelt / Linux bwrap）为底座，探测失败后若静默降级为无沙箱运行，文件越界与外发请求的防线会无声消失。决定把沙箱可用性检查放在 server 启动期（`check_sandbox_available`）：macOS 缺 `sandbox-exec`、Linux 缺 `bwrap`/`socat`、或 bwrap 存在但试跑失败时直接 raise，整个服务拒绝启动（fail-closed），而不是降级运行或等到创建会话时才报错；只有原生无沙箱的 Windows 例外——warning 后禁用沙箱，Agent Bash 工具改走代码级前缀白名单。
+O modelo de segurança das ferramentas do Agent tem o sandbox de kernel (macOS Seatbelt / Linux bwrap) como base; se após falha de detecção degradar em silêncio para rodar sem sandbox, a defesa contra path out-of-bounds e requests de saída some sem aviso. Decidimos colocar a checagem de disponibilidade do sandbox no startup do server (`check_sandbox_available`): sem `sandbox-exec` no macOS, sem `bwrap`/`socat` no Linux, ou bwrap presente mas o trial run falha → raise direto, o serviço inteiro recusa subir (fail-closed), em vez de degradar e rodar ou só errar na primeira sessão; a única exceção é Windows nativo sem sandbox — warning e desliga o sandbox; a ferramenta Bash do Agent passa a usar whitelist de prefixos em código.
 
 ## Consequences
 
-- 部署环境必须先装好沙箱依赖（macOS 自带 `sandbox-exec`；Linux 需 `bwrap` + `socat`），否则服务无法启动。这是刻意设计：宁可拒绝服务，也不在无沙箱状态下运行 agent。
-- Windows 的前缀白名单比沙箱粗粒度（能放行的命令前缀有限），生产部署仍推荐 WSL2/Docker 以走完整沙箱。
+- O ambiente de deploy precisa ter as dependências de sandbox instaladas antes (macOS já traz `sandbox-exec`; Linux precisa de `bwrap` + `socat`), senão o serviço não sobe. Desenho deliberado: melhor recusar serviço do que rodar agent sem sandbox.
+- A whitelist de prefixos no Windows é mais grossa que o sandbox (prefixos de comando liberáveis são limitados); deploy de produção ainda recomenda WSL2/Docker para o sandbox completo.

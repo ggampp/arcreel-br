@@ -1,93 +1,93 @@
 ## ADDED Requirements
 
-### Requirement: 每个 subagent 模板须定义清晰的输入/输出契约
+### Requirement: Cada template de subagent deve definir contrato claro de entrada/saída
 
-每个 subagent 定义文件（`.claude/agents/*.md`）SHALL 在 description 和 system prompt 中明确声明其输入参数、输出格式和内部调用的 skill/脚本。
+Cada arquivo de definição de subagent (`.claude/agents/*.md`) SHALL declarar explicitamente, na description e no system prompt, seus parâmetros de entrada, formato de saída e skills/scripts chamados internamente.
 
-#### Scenario: analyze-assets subagent 契约
-- **WHEN** 该 subagent 被 dispatch
-- **THEN** 它接收项目名称和 source 目录路径作为输入，自行读取小说原文，分析并提取角色 / 场景 / 道具三类资产，通过 Bash 调用 `add_assets.py` 脚本写入 project.json，返回资产摘要列表
+#### Scenario: Contrato do subagent analyze-assets
+- **WHEN** esse subagent é despachado (dispatch)
+- **THEN** ele recebe o nome do projeto e o caminho do diretório source como entrada, lê sozinho o texto original do romance, analisa e extrai três classes de ativos (personagens / cenas / props), grava em project.json via Bash com o script `add_assets.py` e retorna uma lista-resumo dos ativos
 
-#### Scenario: split-narration-segments subagent 契约
-- **WHEN** 该 subagent 被 dispatch
-- **THEN** 它接收项目名称、集数、本集小说文本范围作为输入，按朗读节奏拆分片段（约 4 秒/片段），标记 segment_break，保存 `drafts/episode_{N}/step1_segments.md`，返回片段数量和总时长摘要
+#### Scenario: Contrato do subagent split-narration-segments
+- **WHEN** esse subagent é despachado
+- **THEN** ele recebe nome do projeto, número do episódio e o trecho de texto do romance daquele episódio; divide em segmentos pelo ritmo de narração (~4 s/segmento), marca segment_break, salva `drafts/episode_{N}/step1_segments.md` e retorna resumo com quantidade de segmentos e duração total
 
-#### Scenario: normalize-drama-script subagent 契约
-- **WHEN** 该 subagent 被 dispatch
-- **THEN** 它接收项目名称、集数作为输入，首次生成时调用进程内 MCP 工具 `mcp__arcreel__normalize_drama_script`（使用项目配置的文本模型）生成规范化剧本和镜头预算，保存 `drafts/episode_{N}/step1_normalized_script.md` 和 `step2_shot_budget.md`，返回场景数量和镜头分布摘要；后续修改时由 subagent 直接编辑已有的 Markdown 文件
+#### Scenario: Contrato do subagent normalize-drama-script
+- **WHEN** esse subagent é despachado
+- **THEN** ele recebe nome do projeto e número do episódio; na primeira geração chama a ferramenta MCP in-process `mcp__arcreel__normalize_drama_script` (modelo de texto configurado no projeto) para gerar roteiro normalizado e orçamento de planos, salva `drafts/episode_{N}/step1_normalized_script.md` e `step2_shot_budget.md`, e retorna resumo de quantidade de cenas e distribuição de planos; em edições posteriores o subagent edita diretamente os Markdown existentes
 
-#### Scenario: create-episode-script subagent 契约
-- **WHEN** 该 subagent 被 dispatch
-- **THEN** 它接收项目名称和集数作为输入，预加载 generate-script skill，调用进程内 MCP 工具 `mcp__arcreel__generate_episode_script` 生成 JSON，验证输出，返回生成结果摘要
+#### Scenario: Contrato do subagent create-episode-script
+- **WHEN** esse subagent é despachado
+- **THEN** ele recebe nome do projeto e número do episódio, pré-carrega a skill generate-script, chama a ferramenta MCP in-process `mcp__arcreel__generate_episode_script` para gerar JSON, valida a saída e retorna um resumo do resultado
 
-### Requirement: 每个 subagent 须为单任务聚焦设计
+### Requirement: Cada subagent deve ser focado em uma única tarefa
 
-每个 subagent SHALL 只完成一个聚焦的任务并返回，不得在内部包含需要用户确认的多步工作流。
+Cada subagent SHALL completar apenas uma tarefa focada e retornar; não pode incluir internamente fluxos multi-etapas que exijam confirmação do usuário.
 
-#### Scenario: subagent 内部不得使用 AskUserQuestion 进行步骤间确认
-- **WHEN** subagent 执行其聚焦任务
-- **THEN** subagent 独立完成全部工作后返回结果，不在中间步骤使用 AskUserQuestion 等待用户确认
+#### Scenario: Subagent não deve usar AskUserQuestion para confirmações entre etapas
+- **WHEN** o subagent executa sua tarefa focada
+- **THEN** o subagent conclui todo o trabalho de forma independente e retorna o resultado, sem usar AskUserQuestion no meio para esperar confirmação do usuário
 
-#### Scenario: subagent 遇到歧义可请求澄清
-- **WHEN** subagent 执行过程中遇到无法独立判断的关键歧义（如小说中角色名不明确）
-- **THEN** subagent 可以使用 AskUserQuestion 一次性请求澄清，但不得用于多步流程控制
+#### Scenario: Subagent pode pedir esclarecimento em ambiguidade
+- **WHEN** durante a execução o subagent encontra ambiguidade crítica que não consegue resolver sozinho (ex.: nome de personagem pouco claro no romance)
+- **THEN** o subagent pode usar AskUserQuestion uma única vez para pedir esclarecimento, mas não para controle de fluxo multi-etapas
 
-### Requirement: 预处理 subagent 须按内容模式独立定义
+### Requirement: Subagents de pré-processamento devem ser definidos por content_mode
 
-说书模式和剧集动画模式 SHALL 使用各自独立的 subagent 定义，而非共用一个带参数切换的 subagent。
+Os modos narration (narração) e drama (série animada) SHALL usar definições de subagent independentes, em vez de um único subagent com parâmetro de alternância.
 
-#### Scenario: narration 模式使用 split-narration-segments
-- **WHEN** project 的 content_mode 为 "narration"
-- **THEN** 编排 skill 指引主 agent dispatch `split-narration-segments` subagent，执行片段拆分（按朗读节奏、标记 segment_break、标记对话片段），输出 step1_segments.md
+#### Scenario: Modo narration usa split-narration-segments
+- **WHEN** o content_mode do project é "narration"
+- **THEN** a skill de orquestração orienta o agente principal a despachar o subagent `split-narration-segments`, executar a divisão de segmentos (ritmo de narração, marcar segment_break, marcar segmentos de diálogo) e gerar step1_segments.md
 
-#### Scenario: drama 模式使用 normalize-drama-script
-- **WHEN** project 的 content_mode 为 "drama"
-- **THEN** 编排 skill 指引主 agent dispatch `normalize-drama-script` subagent，执行规范化剧本（结构化场景、时间、地点、角色）+ 镜头预算（预估镜头数、标记 segment_break），输出 step1_normalized_script.md 和 step2_shot_budget.md
+#### Scenario: Modo drama usa normalize-drama-script
+- **WHEN** o content_mode do project é "drama"
+- **THEN** a skill de orquestração orienta o agente principal a despachar o subagent `normalize-drama-script`, executar roteiro normalizado (cenas estruturadas, tempo, local, personagens) + orçamento de planos (estimativa de planos, marcar segment_break) e gerar step1_normalized_script.md e step2_shot_budget.md
 
-### Requirement: create-episode-script subagent 须预加载 generate-script skill
+### Requirement: create-episode-script deve pré-carregar a skill generate-script
 
-`create-episode-script` subagent 的 frontmatter SHALL 通过 `skills` 字段预加载 `generate-script` skill。
+O frontmatter do subagent `create-episode-script` SHALL pré-carregar a skill `generate-script` via campo `skills`.
 
-#### Scenario: skill 内容在 subagent 启动时注入
-- **WHEN** subagent 被 dispatch
-- **THEN** generate-script skill 的完整内容已在 subagent context 中，subagent 可按 skill 指示调用 `mcp__arcreel__generate_episode_script` 工具
+#### Scenario: Conteúdo da skill injetado ao iniciar o subagent
+- **WHEN** o subagent é despachado
+- **THEN** o conteúdo completo da skill generate-script já está no context do subagent, que pode chamar a ferramenta `mcp__arcreel__generate_episode_script` conforme as instruções da skill
 
-#### Scenario: subagent 验证生成结果
-- **WHEN** `mcp__arcreel__generate_episode_script` 工具执行完成
-- **THEN** subagent 验证 scripts/episode_{N}.json 存在且通过数据验证，如有错误则尝试修正后重新生成
+#### Scenario: Subagent valida o resultado gerado
+- **WHEN** a ferramenta `mcp__arcreel__generate_episode_script` termina
+- **THEN** o subagent valida que scripts/episode_{N}.json existe e passa na validação de dados; se houver erros, tenta corrigir e regenerar
 
-### Requirement: 删除旧的多步 subagent 定义
+### Requirement: Remover definições antigas de subagent multi-etapas
 
-`novel-to-narration-script.md` 和 `novel-to-storyboard-script.md` SHALL 被删除，替换为新的聚焦 subagent 模板。
+`novel-to-narration-script.md` e `novel-to-storyboard-script.md` SHALL ser removidos e substituídos pelos novos templates de subagent focados.
 
-#### Scenario: 旧 agent 文件被移除
-- **WHEN** 重构完成
-- **THEN** `agent_runtime_profile/.claude/agents/` 目录中不再包含 `novel-to-narration-script.md` 和 `novel-to-storyboard-script.md`
+#### Scenario: Arquivos antigos de agent removidos
+- **WHEN** a refatoração é concluída
+- **THEN** o diretório `agent_runtime_profile/.claude/agents/` não contém mais `novel-to-narration-script.md` nem `novel-to-storyboard-script.md`
 
-#### Scenario: 新 agent 文件就位
-- **WHEN** 重构完成
-- **THEN** `agent_runtime_profile/.claude/agents/` 目录中包含 `analyze-assets.md`、`split-narration-segments.md`、`normalize-drama-script.md`、`create-episode-script.md` 等聚焦 subagent 定义
+#### Scenario: Novos arquivos de agent no lugar
+- **WHEN** a refatoração é concluída
+- **THEN** o diretório `agent_runtime_profile/.claude/agents/` contém definições focadas como `analyze-assets.md`, `split-narration-segments.md`, `normalize-drama-script.md`, `create-episode-script.md`
 
-### Requirement: 须提供资产写入的 CLI 脚本
+### Requirement: Deve existir script CLI para gravação de ativos
 
-SHALL 提供 `add_assets.py` 脚本（位于 manage-project skill 的 scripts/ 下），封装 `ProjectManager` 的角色 / 场景 / 道具批量写入 + `validate_project()`，供 subagent 通过 Bash 工具调用。
+SHALL existir o script `add_assets.py` (em scripts/ da skill manage-project), encapsulando gravação em lote de personagens / cenas / props via `ProjectManager` + `validate_project()`, para o subagent chamar via ferramenta Bash.
 
-#### Scenario: 批量添加角色 / 场景 / 道具
-- **WHEN** subagent 通过 Bash 调用 `add_assets.py`，以 `--characters` / `--scenes` / `--props` 传入紧凑 JSON 数据
-- **THEN** 脚本将三类资产写入 project.json，调用 validate_project 验证，打印成功/失败摘要
+#### Scenario: Adicionar personagens / cenas / props em lote
+- **WHEN** o subagent chama `add_assets.py` via Bash, passando JSON compacto com `--characters` / `--scenes` / `--props`
+- **THEN** o script grava os três tipos de ativos em project.json, chama validate_project e imprime resumo de sucesso/falha
 
-#### Scenario: 已存在的资产自动跳过
-- **WHEN** 传入的资产名在 project.json 中已存在
-- **THEN** 脚本跳过该资产（不覆盖已有数据），在输出中标注"已存在，跳过"
+#### Scenario: Ativos já existentes são ignorados automaticamente
+- **WHEN** o nome do ativo já existe em project.json
+- **THEN** o script ignora esse ativo (sem sobrescrever dados existentes) e marca na saída "já existe, ignorado"
 
-### Requirement: 须提供 drama 模式规范化剧本的进程内 MCP 工具
+### Requirement: Deve existir ferramenta MCP in-process de normalização de roteiro no modo drama
 
-SHALL 提供进程内 MCP 工具 `mcp__arcreel__normalize_drama_script`（实现于 `server/agent_runtime/sdk_tools/text_generation.py`），使用项目配置的文本模型将小说原文转化为 Markdown 格式的规范化剧本和镜头预算。
+SHALL existir a ferramenta MCP in-process `mcp__arcreel__normalize_drama_script` (implementada em `server/agent_runtime/sdk_tools/text_generation.py`), usando o modelo de texto configurado no projeto para transformar o romance original em roteiro normalizado em Markdown e orçamento de planos.
 
-#### Scenario: 首次生成规范化剧本
-- **WHEN** `normalize-drama-script` subagent 调用该工具
-- **THEN** 工具读取 source/ 小说原文，调用项目配置的文本模型生成结构化的规范化剧本，输出 `drafts/episode_{N}/step1_normalized_script.md` 和 `step2_shot_budget.md`
+#### Scenario: Primeira geração do roteiro normalizado
+- **WHEN** o subagent `normalize-drama-script` chama essa ferramenta
+- **THEN** a ferramenta lê o romance em source/, chama o modelo de texto do projeto para gerar roteiro estruturado e grava `drafts/episode_{N}/step1_normalized_script.md` e `step2_shot_budget.md`
 
-#### Scenario: 输出格式与 script 生成阶段兼容
-- **WHEN** 规范化剧本生成完成
-- **THEN** 输出的 `step1_normalized_script.md` 格式与后续 `mcp__arcreel__generate_episode_script` 所期望的输入格式一致，确保 JSON 剧本生成阶段可无缝消费
+#### Scenario: Formato de saída compatível com a etapa de geração de script
+- **WHEN** a geração do roteiro normalizado termina
+- **THEN** o formato de `step1_normalized_script.md` é compatível com a entrada esperada por `mcp__arcreel__generate_episode_script`, permitindo consumo contínuo na geração do roteiro JSON

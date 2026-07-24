@@ -1,109 +1,109 @@
 ## Context
 
-ArcReel 当前使用 OAuth2 Bearer JWT 认证，所有 API 端点通过 `get_current_user` 依赖验证。前端先通过 `/auth/token` 获取 JWT，后续请求携带 `Authorization: Bearer <jwt>`。
+O ArcReel usa autenticação OAuth2 Bearer JWT; todos os endpoints de API são validados pela dependência `get_current_user`. O frontend obtém o JWT em `/auth/token` e as requisições seguintes carregam `Authorization: Bearer <jwt>`.
 
-OpenClaw 等外部平台需要长期有效的 API Key 来调用 ArcReel API，而非短期 JWT。此外，现有助手对话基于 SSE 流式，外部 Agent 需要同步请求-响应接口。
+Plataformas externas como OpenClaw precisam de API Keys de longa duração para chamar a API do ArcReel, em vez de JWT de curta duração. Além disso, a conversa do assistente atual é stream SSE; Agents externos precisam de interface síncrona request-response.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- 在现有认证体系中增加 API Key 认证模式，与 JWT 认证共存
-- 复用现有 API 端点，无需创建独立的"公开 API"层
-- 提供同步 Agent 对话端点供外部调用
-- 编写符合 OpenClaw AgentSkill 规范的 skill.md
+- Adicionar modo de autenticação por API Key ao sistema existente, coexistindo com JWT
+- Reutilizar os endpoints de API atuais, sem criar uma camada separada de "API pública"
+- Fornecer endpoint síncrono de conversa com o Agent para chamadas externas
+- Escrever skill.md no padrão OpenClaw AgentSkill
 
 **Non-Goals:**
-- 不实现多用户/多租户体系（保持单用户模式）
-- 不实现 API 调用频率限制（后续迭代）
-- 不实现 API Key 权限范围控制（所有 key 拥有完整权限）
-- 不重构现有 API 端点的路径或参数格式
+- Não implementar multi-usuário / multi-tenant (manter modo single-user)
+- Não implementar rate limit de chamadas de API (iteração futura)
+- Não implementar controle de escopo de permissões por API Key (todas as keys têm permissão completa)
+- Não refatorar caminhos ou formatos de parâmetros dos endpoints existentes
 
 ## Decisions
 
-### 1. API Key 格式与存储
+### 1. Formato e armazenamento da API Key
 
-**决定**: 使用 `arc-` 前缀 + 32 位随机字符串，数据库只存 SHA-256 哈希。
+**Decisão**: prefixo `arc-` + 32 caracteres aleatórios; o banco só guarda o hash SHA-256.
 
-格式：`arc-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`（36 字符）
+Formato: `arc-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` (36 caracteres)
 
-**理由**: 前缀便于用户识别来源，同时作为认证分流的判断依据；哈希存储确保数据库泄露不会暴露原始 key。参考 Zopia 的 `zopia-xxxxxxxxxxxx` 模式。
+**Justificativa**: o prefixo facilita o reconhecimento pelo usuário e serve de critério de bifurcação na autenticação; o hash garante que um vazamento do banco não exponha a key original. Referência ao padrão Zopia `zopia-xxxxxxxxxxxx`.
 
-### 2. 认证层改造方式
+### 2. Forma de remodelar a camada de autenticação
 
-**决定**: 修改 `server/auth.py` 的 `_verify_and_get_payload`，通过 `arc-` 前缀直接判定认证模式。
+**Decisão**: alterar `_verify_and_get_payload` em `server/auth.py`, decidindo o modo de autenticação pelo prefixo `arc-`.
 
-流程：
-1. 提取 Bearer token
-2. 检查 token 是否以 `arc-` 开头
-3. **是 → API Key 路径**：计算 SHA-256 哈希 → 查数据库 → 成功则返回 `{"sub": "apikey:<key_name>", "via": "apikey"}`
-4. **否 → JWT 路径**：JWT 解码验证 → 成功则返回 payload
-5. 任一路径失败 → 返回 401
+Fluxo:
+1. Extrair o Bearer token
+2. Verificar se o token começa com `arc-`
+3. **Sim → caminho API Key**: calcular hash SHA-256 → consultar o banco → em sucesso retornar `{"sub": "apikey:<key_name>", "via": "apikey"}`
+4. **Não → caminho JWT**: decodificar e validar JWT → em sucesso retornar o payload
+5. Qualquer caminho falhando → retornar 401
 
-**理由**: 前缀判定是确定性的，避免不必要的 JWT 解码尝试。最小改动，所有现有端点自动获得 API Key 支持。
+**Justificativa**: a decisão por prefixo é determinística e evita tentativas desnecessárias de decode JWT. Mudança mínima; todos os endpoints existentes ganham suporte a API Key automaticamente.
 
-**替代方案**: 单独的认证中间件（改动更大）；新建独立路由前缀（违反复用原则）。
+**Alternativas**: middleware de autenticação separado (mais mudanças); prefixo de rota independente (viola o princípio de reutilização).
 
-### 3. 同步 Agent 对话端点
+### 3. Endpoint síncrono de conversa com o Agent
 
-**决定**: 新增 `POST /api/v1/agent/chat` 端点，内部创建临时会话 → 发送消息 → 收集 SSE 流直到完成 → 返回完整响应。
+**Decisão**: novo endpoint `POST /api/v1/agent/chat`; por dentro cria sessão temporária → envia mensagem → coleta o stream SSE até concluir → retorna a resposta completa.
 
-请求体：
+Corpo da requisição:
 ```json
 {
   "project_name": "my-project",
-  "message": "帮我写一个悬疑剧本",
-  "session_id": null  // 可选，传入则复用会话
+  "message": "Me ajude a escrever um roteiro de suspense",
+  "session_id": null  // opcional; se informado, reutiliza a sessão
 }
 ```
 
-响应体：
+Corpo da resposta:
 ```json
 {
   "session_id": "xxx",
-  "reply": "好的，我来帮你...",
+  "reply": "Certo, vou te ajudar...",
   "status": "completed"
 }
 ```
 
-**理由**: 参考 Zopia 的 `/api/v1/agent/chat` 设计，OpenClaw 等外部 Agent 不支持 SSE，需要同步接口。内部复用 AssistantService。
+**Justificativa**: referência ao design `/api/v1/agent/chat` do Zopia; Agents externos como OpenClaw não suportam SSE e precisam de interface síncrona. Reutiliza AssistantService por dentro.
 
-### 4. API Key 管理位置
+### 4. Local do gerenciamento de API Key
 
-**决定**: 后端新增 `server/routers/api_keys.py`，前端在设置页面新增 "API Keys" tab。
+**Decisão**: backend com `server/routers/api_keys.py` novo; frontend com tab "API Keys" na página de configurações.
 
-数据库模型 `ApiKey`：
-- `id`: 主键
-- `name`: 用户自定义名称
-- `key_hash`: SHA-256 哈希
-- `key_prefix`: 前 8 位（`arc-xxxx`）用于列表展示
-- `created_at`: 创建时间
-- `expires_at`: 过期时间（可选，默认 30 天）
-- `last_used_at`: 最近使用时间
+Modelo de banco `ApiKey`:
+- `id`: chave primária
+- `name`: nome definido pelo usuário
+- `key_hash`: hash SHA-256
+- `key_prefix`: primeiros 8 caracteres (`arc-xxxx`) para exibição na lista
+- `created_at`: horário de criação
+- `expires_at`: horário de expiração (opcional, padrão 30 dias)
+- `last_used_at`: último uso
 
-**理由**: 与现有 ORM 体系一致，复用 SQLAlchemy async + Alembic migration。
+**Justificativa**: alinhado ao ORM existente; reutiliza SQLAlchemy async + migration Alembic.
 
-### 5. skill.md 动态服务
+### 5. Serviço dinâmico de skill.md
 
-**决定**: skill.md 作为模板存放在 `public/skill.md.template`，其中 API URL 使用 `{{BASE_URL}}` 占位符。通过 FastAPI 路由 `GET /skill.md` 动态渲染：从请求的 `Host` header 和 scheme 推断实际 base URL，替换占位符后返回。
+**Decisão**: skill.md fica como template em `public/skill.md.template`, com placeholder `{{BASE_URL}}` nas API URLs. A rota FastAPI `GET /skill.md` renderiza dinamicamente: infere a base URL real a partir do header `Host` e do scheme, substitui o placeholder e retorna.
 
-**理由**: 本项目是自部署服务，每个用户的域名/端口不同，skill.md 中的 API URL 必须动态适配。静态文件无法做到这一点。
+**Justificativa**: o projeto é self-hosted; domínio/porta de cada usuário é diferente; as API URLs em skill.md precisam se adaptar. Arquivo estático não resolve.
 
-**替代方案**: 让用户手动填写 base URL 配置（增加用户负担）；前端生成（OpenClaw 需要从服务端直接获取）。
+**Alternativas**: o usuário preenche a base URL manualmente (mais atrito); geração no frontend (OpenClaw precisa obter direto do servidor).
 
-### 6. 前端 OpenClaw 使用引导弹窗
+### 6. Modal de guia de uso do OpenClaw no frontend
 
-**决定**: 在项目大厅页顶栏新增 🦞 OpenClaw 按钮，点击弹出使用说明 Modal，内容包括：
-- 提示词（可复制）：`学习 https://<domain>/skill.md 然后遵循skill,任凭发挥创作视频`
-- 使用步骤说明（4 步）
-- "获取 API 令牌" 按钮（跳转到 API Key 管理页面）
+**Decisão**: botão 🦞 OpenClaw na barra superior do hall de projetos; o clique abre um Modal de instruções com:
+- Prompt (copiável): `Aprenda https://<domain>/skill.md e siga a skill; crie vídeos livremente`
+- Passos de uso (4)
+- Botão "Obter token de API" (navega para o gerenciamento de API Keys)
 
-弹窗中的提示词里的 URL 也需要动态替换为当前访问地址。
+A URL no prompt do modal também é substituída dinamicamente pelo endereço atual de acesso.
 
-**理由**: 参考 Zopia 的引导设计，降低用户理解成本。
+**Justificativa**: referência ao guia do Zopia; reduz o custo de compreensão para o usuário.
 
 ## Risks / Trade-offs
 
-- **[性能]** API Key 每次请求需查库验证 → 加内存缓存（LRU, TTL 5 分钟），降低数据库压力
-- **[安全]** API Key 长期有效 → 默认 30 天过期 + 支持手动吊销
-- **[兼容性]** 同步对话端点可能超时 → 设置合理的响应超时（120 秒），超时后返回部分响应
-- **[单用户]** API Key 不区分用户 → 当前单用户模式下可接受，多用户时需扩展
+- **[Performance]** Cada requisição com API Key consulta o banco → cache em memória (LRU, TTL 5 minutos) para reduzir a carga
+- **[Segurança]** API Key de longa duração → expiração padrão de 30 dias + revogação manual
+- **[Compatibilidade]** O endpoint síncrono de conversa pode dar timeout → timeout de resposta razoável (120 s); em timeout retornar resposta parcial
+- **[Single-user]** API Key não distingue usuários → aceitável no modo single-user atual; multi-usuário exigiria extensão

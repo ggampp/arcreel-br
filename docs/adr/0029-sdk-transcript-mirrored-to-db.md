@@ -2,11 +2,11 @@
 status: accepted
 ---
 
-# SDK transcript 镜像入自有 DB，默认 eager flush；idle 会话从内存驱逐、可恢复不丢历史
+# Transcript do SDK espelhado no DB próprio; eager flush por default; sessão idle expulsa da memória e se restaura sem perder histórico
 
-SDK 自带的 jsonl transcript 绑定本机文件系统，与「运行时状态统一进单一 async ORM DB」（`docs/adr/0020`）的部署形态（多用户/PostgreSQL）不匹配。决定实现自定义 SessionStore 把 transcript 逐 entry 镜像写入 DB（`agent_session_entries` + 会话摘要表），由 `ARCREEL_SDK_SESSION_STORE` 控制（默认 `db`，`off` 回退 SDK jsonl），启动钩子一次性把本地历史 jsonl 迁移入库；flush 模式默认 eager——逐条写入数据库，以换取崩溃后 SDK resume 不丢上下文。transcript 只服务 SDK resume，UI 时间线的读源是会话事件日志（见 `docs/adr/0048`）。
+O transcript jsonl nativo do SDK amarra ao filesystem local e não casa com a forma de deploy de «estado de runtime unificado no único async ORM DB» (`docs/adr/0020`) (multi-usuário/PostgreSQL). Decidimos implementar SessionStore custom que espelha o transcript entry a entry no DB (`agent_session_entries` + tabela de resumo de sessão), controlado por `ARCREEL_SDK_SESSION_STORE` (default `db`; `off` volta ao jsonl do SDK); hook de startup migra de uma vez o jsonl histórico local para o DB; o modo de flush default é eager — grava no banco item a item, em troca de o resume do SDK após crash não perder contexto. O transcript só serve ao resume do SDK; a fonte de leitura da timeline da UI é o log de eventos da sessão (ver `docs/adr/0048`).
 
 ## Consequences
 
-- 闲置会话在延迟后（`agent_session_cleanup_delay_seconds`，默认 300 秒，另有定期巡检兜底）从内存驱逐（关闭 actor/SDK 子进程）以约束常驻内存。正因 transcript 已入库，驱逐不丢历史：再次访问时按 sdk_session_id 以 SDK resume 重建 actor 续聊。
-- eager flush 有写放大；SDK 在慢 store 下会自行合并帧。`off` 模式只适合单机开发。
+- Sessões ociosas, após atraso (`agent_session_cleanup_delay_seconds`, default 300 s, com inspeção periódica de fallback), são expulsas da memória (fecha actor/subprocesso do SDK) para conter memória residente. Como o transcript já está no DB, a expulsão não perde histórico: no próximo acesso, rebuild do actor por sdk_session_id via SDK resume e a conversa continua.
+- Eager flush tem write amplification; em store lento o SDK funde frames por conta própria. O modo `off` só serve a dev single-machine.

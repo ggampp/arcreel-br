@@ -2,20 +2,20 @@
 status: accepted
 ---
 
-# 分集以 project.json 账本为单一真相源，物理集文件降级为同锁派生物
+# Episódios: ledger em project.json como única fonte de verdade; arquivos físicos de episódio viram derivados sob o mesmo lock
 
-旧拆分流程以物理文件本身为真相（`episode_N.txt` 存在即已拆、`_remaining.txt` 滚动覆盖作进度指针），没有任何"第 N 集对应原文哪一段"的显式记录——下游选错文件无从对账，后续集靠 Glob 推断集数易错，`_remaining.txt` 损坏即不可恢复。决定把分集真相源并入 project.json `episodes[]`：条目扩展原文素材范围（source_range，narration 为精确切分点、drama 为软素材范围）、钩子（hook）、drama 分集大纲与消费状态字段，顶层增加 planning_cursor 标记下一批规划起点。物理 `episode_N.txt` 降级为派生物，由规划/重排工具在同一把项目锁内随账本一并重写并清理账本之外的残留文件，不一致窗口为零；`_remaining.txt` 废除。存量项目沿 ADR 0022 启动迁移机械回填——拿派生文件内容回源文做精确子串匹配反推 source_range，匹配不上的标 unanchored 锁定（物理文件即其最终记录，不参与重排）。
+O fluxo antigo de split tinha o arquivo físico como verdade (`episode_N.txt` existe = já splitado; `_remaining.txt` sobrescrito em rolagem como ponteiro de progresso), sem nenhum registro explícito de «o episódio N corresponde a qual trecho do original» — o downstream que escolhesse o arquivo errado não tinha como reconciliar; episódios seguintes inferiam o número via Glob e erravam fácil; `_remaining.txt` corrompido era irrecuperável. Decidimos unificar a fonte de verdade de episódios em `episodes[]` de project.json: a entrada ganha o alcance do material original (source_range — em narration ponto de corte exato, em drama alcance soft de material), hook, outline de episódio drama e campos de estado de consumo; no topo, planning_cursor marca o início do próximo lote de planejamento. O físico `episode_N.txt` vira derivado, reescrito junto com o ledger sob o mesmo lock de projeto pelas ferramentas de plan/replan, limpando resíduos fora do ledger — janela de inconsistência zero; `_remaining.txt` abolido. Projetos legados backfill mecânico na migração de startup do ADR 0022 — conteúdo do arquivo derivado casa substring exata de volta no original para inferir source_range; miss marca unanchored e trava (o arquivo físico é o registro final daquele episódio e não participa de replan).
 
 ## Considered Options
 
-- 维持物理文件真相源、仅包装更可靠的单一工具：对账依据依旧缺失，"不同集生成了相同内容"类事故无从检测。
-- 独立账本文件或 DB 表：集的概念裂成两处需要对账；DB 与"项目级数据一贯在文件系统"的分层相悖，导出/迁移/备份路径全部复杂化。
-- 不派生物理文件、下游按范围直读源文：三个预处理 subagent 与 Web 端展示全要改造，爆炸半径过大。
-- 消费时按需派生：永不陈旧，但"agent 记得先调派生工具"把可靠性又押回流程遵循。
+- Manter arquivo físico como fonte de verdade, só embrulhando ferramenta única mais confiável: base de reconciliação continua ausente; acidentes do tipo «episódios diferentes geraram o mesmo conteúdo» não se detectam.
+- Ledger independente em arquivo ou tabela DB: o conceito de episódio se parte em dois lugares a reconciliar; DB conflita com a camada «dados de nível de projeto sempre no filesystem»; export/migração/backup todos complicam.
+- Não derivar arquivo físico; downstream lê o original por range: os três subagents de preprocess e a exibição Web teriam de mudar todos — raio de explosão grande demais.
+- Derivar sob demanda no consumo: nunca stale, mas «o agent lembra de chamar a ferramenta de derivar primeiro» devolve a confiabilidade ao cumprimento de fluxo.
 
 ## Consequences
 
-- 新 session 接续 = 读账本，废除 Glob 推断集数与 `_remaining.txt` 进度指针。
-- 重排已消费集（已生成 step1/剧本/媒体）需显式确认，其下游产物随账本一并失效。失效是标记（stale）而非删除：状态检测把该集拉回待预处理，重做沿现有覆盖/版本机制替换，旧版可回滚——贵重媒体产物不因重排丢失。
-- 手工编辑或重命名 `episode_N.txt` 不再被支持——修改走账本重派生。
-- 回填比对允许无损预处理（统一换行符、Unicode NFC），但不做模糊匹配：派生文件与源文的语义性差异只可能来自人工编辑，近似锚定会让账本失真。unanchored 是诚实降级而非失败——物理文件仍是该集最终记录，下游消费不受影响，仅不参与重排。
+- Continuação de session nova = ler o ledger; acaba inferência de número de episódio por Glob e ponteiro de progresso `_remaining.txt`.
+- Replanear episódios já consumidos (já geraram step1/roteiro/mídia) exige confirmação explícita; produtos downstream invalidam junto com o ledger. Invalidação é marca (stale), não delete: a detecção de estado puxa o episódio de volta a «aguardando preprocess»; o refazer substitui pelos mecanismos existentes de overwrite/versão; versões antigas podem reverter — produtos de mídia caros não se perdem no replan.
+- Editar ou renomear `episode_N.txt` à mão deixa de ser suportado — mudança passa por rederivar a partir do ledger.
+- A comparação de backfill permite preprocess sem perda (normalizar newlines, Unicode NFC), mas sem match fuzzy: diferença semântica entre arquivo derivado e original só pode vir de edição humana; âncora aproximada distorceria o ledger. unanchored é degradação honesta, não falha — o arquivo físico ainda é o registro final daquele episódio, o consumo downstream não é afetado; só não participa de replan.

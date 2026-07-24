@@ -1,48 +1,48 @@
 ## ADDED Requirements
 
-### Requirement: 签发下载 token
-系统 SHALL 提供 `POST /api/v1/projects/{name}/export/token` 端点，为已认证用户签发短时效下载 token。
+### Requirement: Emitir download token
+O sistema SHALL fornecer o endpoint `POST /api/v1/projects/{name}/export/token` para emitir um token de download de curta duração a usuários autenticados.
 
-该 token 为 JWT（HS256），payload SHALL 包含：
-- `sub`：当前用户名
-- `project`：请求的项目名
-- `purpose`：固定值 `"download"`
-- `exp`：签发时间 + 300 秒（5 分钟）
+Esse token é um JWT (HS256); o payload SHALL conter:
+- `sub`: nome de usuário atual
+- `project`: nome do projeto solicitado
+- `purpose`: valor fixo `"download"`
+- `exp`: horário de emissão + 300 segundos (5 minutos)
 
-端点 SHALL 返回 JSON：`{ "download_token": "<jwt>", "expires_in": 300 }`。
+O endpoint SHALL retornar JSON: `{ "download_token": "<jwt>", "expires_in": 300 }`.
 
-#### Scenario: 已认证用户成功获取下载 token
-- **WHEN** 已认证用户对存在的项目调用 `POST /api/v1/projects/{name}/export/token`
-- **THEN** 系统返回 200，响应体包含 `download_token` 字符串和 `expires_in: 300`
+#### Scenario: Usuário autenticado obtém download token com sucesso
+- **WHEN** um usuário autenticado chama `POST /api/v1/projects/{name}/export/token` para um projeto existente
+- **THEN** o sistema retorna 200, com corpo contendo a string `download_token` e `expires_in: 300`
 
-#### Scenario: 未认证用户请求下载 token
-- **WHEN** 未携带有效 Bearer JWT 的请求调用 `POST /api/v1/projects/{name}/export/token`
-- **THEN** 系统返回 401
+#### Scenario: Usuário não autenticado solicita download token
+- **WHEN** uma requisição sem Bearer JWT válido chama `POST /api/v1/projects/{name}/export/token`
+- **THEN** o sistema retorna 401
 
-#### Scenario: 项目不存在时请求下载 token
-- **WHEN** 已认证用户对不存在的项目调用 `POST /api/v1/projects/{name}/export/token`
-- **THEN** 系统返回 404
+#### Scenario: Solicitar download token de projeto inexistente
+- **WHEN** um usuário autenticado chama `POST /api/v1/projects/{name}/export/token` para um projeto inexistente
+- **THEN** o sistema retorna 404
 
-### Requirement: 导出端点通过下载 token 认证
-导出端点 `GET /api/v1/projects/{name}/export` SHALL 以 `download_token` query param 作为唯一认证方式（必填），由端点自身校验，不依赖 `Authorization` header。
+### Requirement: Endpoint de exportação autentica via download token
+O endpoint de exportação `GET /api/v1/projects/{name}/export` SHALL usar o query param `download_token` como único modo de autenticação (obrigatório), validado pelo próprio endpoint, sem depender do header `Authorization`.
 
-验证规则（`verify_download_token`）：
-- token 的 `purpose` 字段 MUST 为 `"download"`
-- token 的 `project` 字段 MUST 与 URL 中的 `{name}` 一致
-- token MUST 未过期
+Regras de validação (`verify_download_token`):
+- o campo `purpose` do token MUST ser `"download"`
+- o campo `project` do token MUST coincidir com `{name}` na URL
+- o token MUST não estar expirado
 
-#### Scenario: 使用合法下载 token 导出
-- **WHEN** 请求携带合法的 `download_token` query param 访问导出端点
-- **THEN** 系统正常返回 ZIP 文件，无需 Authorization header
+#### Scenario: Exportar com download token válido
+- **WHEN** a requisição carrega um `download_token` query param válido ao acessar o endpoint de exportação
+- **THEN** o sistema retorna normalmente o arquivo ZIP, sem necessidade de Authorization header
 
-#### Scenario: 使用过期下载 token 导出
-- **WHEN** 请求携带已过期的 `download_token` query param 访问导出端点
-- **THEN** 系统返回 401，detail 为 "下载链接已过期，请重新导出"
+#### Scenario: Exportar com download token expirado
+- **WHEN** a requisição carrega um `download_token` query param já expirado
+- **THEN** o sistema retorna 401, com detail "O link de download expirou; exporte novamente"
 
-#### Scenario: 使用项目不匹配的下载 token 导出
-- **WHEN** 请求携带 `download_token`（签发给项目 A）访问项目 B 的导出端点
-- **THEN** 系统返回 403，detail 为 "下载 token 与目标项目不匹配"
+#### Scenario: Exportar com download token de outro projeto
+- **WHEN** a requisição carrega um `download_token` (emitido para o projeto A) ao acessar o endpoint de exportação do projeto B
+- **THEN** o sistema retorna 403, com detail "O download token não corresponde ao projeto de destino"
 
-#### Scenario: 缺少下载 token
-- **WHEN** 请求未携带 `download_token` query param 访问导出端点
-- **THEN** 系统返回 422（缺少必填 query 参数）
+#### Scenario: Falta download token
+- **WHEN** a requisição acessa o endpoint de exportação sem o query param `download_token`
+- **THEN** o sistema retorna 422 (query param obrigatório ausente)

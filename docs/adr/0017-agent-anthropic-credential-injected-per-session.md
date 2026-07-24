@@ -2,11 +2,11 @@
 status: accepted
 ---
 
-# Agent Anthropic 凭证独立存储，每会话从 DB 注入 env 而非写全局 os.environ
+# Credencial Anthropic do Agent em armazenamento próprio; cada sessão injeta env a partir do DB, sem escrever os.environ global
 
-全局 env 是进程级单值，与「多凭证 + 每会话可用不同 active」冲突，且 provider 密钥已全面禁入 `os.environ`。决定 Claude Agent SDK 的 Anthropic 网关凭证存于独立表（与自定义 provider 凭证分离、不进 `ENDPOINT_REGISTRY`、不参与媒体生成），生效方式为每次新建 Agent 会话时由 `build_anthropic_env_dict`（入参是 DB session）从 DB 读 active 凭证返回 dict 注入 `ClaudeAgentOptions.env`、**不写全局 os.environ**；activate 端点只 set_active、不做 env 同步。
+Env global é valor único no nível do processo e conflita com «multi-credencial + cada sessão pode usar active diferente»; além disso secrets de provider já estão proibidos em `os.environ`. Decidimos armazenar as credenciais do gateway Anthropic do Claude Agent SDK em tabela própria (separadas de credenciais de custom provider, fora de `ENDPOINT_REGISTRY`, sem participar da geração de mídia); a forma de vigência é: a cada nova sessão Agent, `build_anthropic_env_dict` (entrada: DB session) lê a credencial active no DB, devolve dict e injeta em `ClaudeAgentOptions.env` — **sem escrever os.environ global**; o endpoint activate só faz set_active, sem sync de env.
 
 ## Consequences
 
-- 已运行的 session 仍持有 spawn 时的 env，切换 active 只对**新**会话生效（仅 toast 提示，不强制终止）。
-- 与 `docs/adr/0008`（自定义 provider 凭证模型）互补：两者都把「凭证存储不被协议形态/进程全局污染」「运行时确定 vs 启动时声明」的边界讲清楚。
+- Sessões já em execução mantêm o env do spawn; trocar active só vale para sessões **novas** (só toast de aviso, sem forçar término).
+- Complementa `docs/adr/0008` (modelo de credencial de custom provider): ambos deixam clara a fronteira «armazenamento de credencial não se contamina com forma de protocolo/global de processo» e «determinado em runtime vs declarado no start».
