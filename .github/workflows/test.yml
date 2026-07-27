@@ -22,7 +22,7 @@ jobs:
       code: ${{ steps.gate.outputs.code }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4.0.1
+      - uses: dorny/paths-filter@v4.0.2
         id: filter
         with:
           filters: |
@@ -57,11 +57,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v8.2.0
+      - uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -114,11 +114,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v8.2.0
+      - uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -159,7 +159,7 @@ jobs:
         with:
           version: 10
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "pnpm"
